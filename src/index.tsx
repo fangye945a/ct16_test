@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { HashRouter } from "react-router-dom";
 import { ErrorBoundary } from "react-error-boundary";
 import { AppContainer, ErrorRender } from "@lark-apaas/client-toolkit-lite";
 import App from "./app";
@@ -8,7 +8,7 @@ import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter basename={process.env.CLIENT_BASE_PATH || "/"}>
+    <HashRouter>
       <AppContainer>
         <ErrorBoundary
           fallbackRender={({ error, resetErrorBoundary }) => (
@@ -18,6 +18,6 @@ createRoot(document.getElementById("root")!).render(
           <App />
         </ErrorBoundary>
       </AppContainer>
-    </BrowserRouter>
+    </HashRouter>
   </StrictMode>,
 );
