@@ -35,15 +35,15 @@ import {
 import type { INetworkDevice, IDeviceNode } from '@/data/topology';
 
 const DEVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  CT15: Cpu, CT16: Cpu, CT32: Server, CT33: Server, CT21B: Monitor, HarmonyPad: Tablet,
+  CT16: Cpu, CT16: Cpu, CT32: Server, CT33: Server, CT21B: Monitor, HarmonyPad: Tablet,
 };
 
 const SUB_DEVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  '温度传感器': Thermometer, '湿度传感器': Droplets, '电磁流量计': Waves,
-  '压力变送器': Gauge, '液位传感器': ArrowUpDown, '按钮开关': ToggleLeft,
-  '旋钮开关': ToggleLeft, '接近开关': Radio, '接触器': Power, '指示灯': Lightbulb,
-  '电动调节阀': Zap, '风机': Power, '变频电机': Zap, '信号灯': Lightbulb,
-  'PLC控制器': Cpu, '工业显示屏': Monitor,
+  '温度传感�?: Thermometer, '湿度传感�?: Droplets, '电磁流量�?: Waves,
+  '压力变送器': Gauge, '液位传感�?: ArrowUpDown, '按钮开�?: ToggleLeft,
+  '旋钮开�?: ToggleLeft, '接近开�?: Radio, '接触�?: Power, '指示�?: Lightbulb,
+  '电动调节阀': Zap, '风机': Power, '变频电机': Zap, '信号�?: Lightbulb,
+  'PLC控制�?: Cpu, '工业显示�?: Monitor,
 };
 
 interface NodeDetailDrawerProps {
@@ -89,7 +89,7 @@ export default function NodeDetailDrawer({ open, onClose, node, tab }: NodeDetai
                   <Badge className={`text-[10px] font-black uppercase mb-1 ${
                     node.role === 'master' ? 'bg-[#00B894] text-white' : 'bg-[#1F2937] text-white'
                   }`}>
-                    {node.role === 'master' ? '主设备 · 本机' : '从设备'}
+                    {node.role === 'master' ? '主设�?· 本机' : '从设�?}
                   </Badge>
                   <div className="text-sm font-bold text-[#111827] mt-1">{node.model}</div>
                 </div>
@@ -111,7 +111,7 @@ export default function NodeDetailDrawer({ open, onClose, node, tab }: NodeDetai
                     <span className="font-black text-[#111827]">{node.uptime}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-[#9CA3AF] font-bold">吞吐量</span>
+                    <span className="text-[#9CA3AF] font-bold">吞吐�?/span>
                     <span className="font-black text-[#111827]">{node.throughput}</span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -122,7 +122,7 @@ export default function NodeDetailDrawer({ open, onClose, node, tab }: NodeDetai
               </Card>
 
               <Card className="p-4 rounded-[24px] border border-[#F3F4F6] shadow-sm">
-                <div className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-3">运行状态</div>
+                <div className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-3">运行状�?/div>
                 <div className="flex items-center gap-3">
                   <span className={`size-3 rounded-full ${node.status === 'online' ? 'bg-[#00B894] animate-pulse' : 'bg-[#9CA3AF]'}`} />
                   <span className={`text-sm font-black ${node.status === 'online' ? 'text-[#00B894]' : 'text-[#9CA3AF]'}`}>
@@ -171,7 +171,7 @@ export default function NodeDetailDrawer({ open, onClose, node, tab }: NodeDetai
                 </div>
                 <div className="flex items-center gap-1.5 mt-2 text-[10px] text-[#9CA3AF]">
                   <RefreshCw className="size-3" />
-                  <span>更新于 {node.lastUpdate}</span>
+                  <span>更新�?{node.lastUpdate}</span>
                 </div>
               </Card>
 
@@ -200,7 +200,7 @@ export default function NodeDetailDrawer({ open, onClose, node, tab }: NodeDetai
                 </div>
               </Card>
 
-              {/* 位置与描述 */}
+              {/* 位置与描�?*/}
               <Card className="p-4 rounded-[24px] border border-[#F3F4F6] shadow-sm">
                 <div className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-3">设备信息</div>
                 <div className="space-y-2.5">
@@ -221,9 +221,9 @@ export default function NodeDetailDrawer({ open, onClose, node, tab }: NodeDetai
                 </div>
               </Card>
 
-              {/* 运行状态 */}
+              {/* 运行状�?*/}
               <Card className="p-4 rounded-[24px] border border-[#F3F4F6] shadow-sm">
-                <div className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-3">运行状态</div>
+                <div className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-3">运行状�?/div>
                 <div className="flex items-center gap-3">
                   <span className={`size-3 rounded-full ${
                     node.status === 'normal' ? 'bg-[#00B894] animate-pulse' :

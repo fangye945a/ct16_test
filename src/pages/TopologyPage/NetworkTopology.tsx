@@ -22,8 +22,8 @@ function DeviceIcon({ model, status, size = 40 }: { model: string; status: strin
   const fillBg = isOnline ? '#00B89414' : '#9CA3AF14';
   const strokeColor = isOnline ? '#00B894' : '#9CA3AF';
 
-  // CT15: 方形紧凑型控制器
-  if (model === 'CT15') {
+  // CT16: 方形紧凑型控制器
+  if (model === 'CT16') {
     return (
       <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
         <rect x="3" y="3" width="34" height="34" rx="8" fill={fillBg} stroke={strokeColor} strokeWidth="1.5" />
@@ -36,8 +36,7 @@ function DeviceIcon({ model, status, size = 40 }: { model: string; status: strin
     );
   }
 
-  // CT16: 稍大矩形高性能控制器
-  if (model === 'CT16') {
+  // CT16: 稍大矩形高性能控制�?  if (model === 'CT16') {
     return (
       <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
         <rect x="2" y="4" width="36" height="32" rx="6" fill={fillBg} stroke={strokeColor} strokeWidth="1.5" />
@@ -50,8 +49,7 @@ function DeviceIcon({ model, status, size = 40 }: { model: string; status: strin
     );
   }
 
-  // CT32: 网关/路由器形状
-  if (model === 'CT32') {
+  // CT32: 网关/路由器形�?  if (model === 'CT32') {
     return (
       <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
         <rect x="4" y="8" width="32" height="24" rx="6" fill={fillBg} stroke={strokeColor} strokeWidth="1.5" />
@@ -86,8 +84,7 @@ function DeviceIcon({ model, status, size = 40 }: { model: string; status: strin
     );
   }
 
-  // CT21B: 工控机/服务器形状
-  if (model === 'CT21B') {
+  // CT21B: 工控�?服务器形�?  if (model === 'CT21B') {
     return (
       <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
         <rect x="4" y="2" width="32" height="36" rx="5" fill={fillBg} stroke={strokeColor} strokeWidth="1.5" />
@@ -122,7 +119,7 @@ function DeviceIcon({ model, status, size = 40 }: { model: string; status: strin
   );
 }
 
-// ── 设备名称简写映射 ──────────────────────────────────
+// ── 设备名称简写映�?──────────────────────────────────
 
 function getShortName(device: INetworkDevice): string {
   const parts = device.name.split('-');
@@ -214,7 +211,7 @@ function BusNodeCard({
   );
 }
 
-// ── 主组件 ─────────────────────────────────────────────
+// ── 主组�?─────────────────────────────────────────────
 
 export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: INetworkDevice) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -267,7 +264,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
 
   return (
     <div className="relative bg-white rounded-[48px] border border-[#F3F4F6] shadow-sm overflow-hidden">
-      {/* ── 工具栏 ── */}
+      {/* ── 工具�?── */}
       <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
         <button
           onClick={zoomIn}
@@ -279,8 +276,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
           onClick={zoomOut}
           className="size-9 rounded-2xl bg-[#F9FAFB] border border-[#F3F4F6] flex items-center justify-center text-[#9CA3AF] hover:text-[#00B894] hover:border-[#00B894]/30 transition-all text-sm font-black"
         >
-          −
-        </button>
+          �?        </button>
         <button
           onClick={resetView}
           className="px-3 py-2 rounded-2xl bg-[#F9FAFB] border border-[#F3F4F6] text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest hover:text-[#00B894] hover:border-[#00B894]/30 transition-all"
@@ -330,7 +326,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
           }}
         >
-          {/* ── 总线 SVG 层 ── */}
+          {/* ── 总线 SVG �?── */}
           <svg
             className="absolute inset-0 w-full h-full pointer-events-none"
             style={{ overflow: 'visible' }}
@@ -373,15 +369,14 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
               分布式软总线
             </text>
 
-            {/* 设备连接线 */}
+            {/* 设备连接�?*/}
             {orderedDevices.map((device, i) => {
               const total = orderedDevices.length;
               // 设备在水平方向均匀分布
               const xPct = 10 + (i / (total - 1)) * 80;
               // 交替上下排列
               const isAbove = i % 2 === 0;
-              const yBus = 50; // 总线 Y 位置（百分比）
-              const yDevice = isAbove ? 28 : 72;
+              const yBus = 50; // 总线 Y 位置（百分比�?              const yDevice = isAbove ? 28 : 72;
 
               const isOnline = device.status === 'online';
               const isMaster = device.role === 'master';
@@ -390,7 +385,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
 
               return (
                 <g key={`conn-${device.id}`}>
-                  {/* 垂直连接线 */}
+                  {/* 垂直连接�?*/}
                   <line
                     x1={`${xPct}%`}
                     y1={`${yBus}%`}
@@ -401,7 +396,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
                     strokeLinecap="round"
                     opacity={lineOpacity}
                   />
-                  {/* 连接点 */}
+                  {/* 连接�?*/}
                   <circle
                     cx={`${xPct}%`}
                     cy={`${yBus}%`}

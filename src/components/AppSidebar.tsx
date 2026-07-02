@@ -27,8 +27,8 @@ const NAV_ITEMS = [
   { path: '/files-logs', label: '文件日志', icon: FolderTree },
   { path: '/ota', label: 'OTA 升级', icon: Upload },
   { path: '/device-models', label: '设备模型管理', icon: Boxes },
-  { path: '/nodered', label: '可视化编程', icon: Workflow },
-  { path: '/picoclaw', label: '智能体配置', icon: Bot },
+  { path: '/nodered', label: '可视化编�?, icon: Workflow },
+  { path: '/picoclaw', label: '智能体配�?, icon: Bot },
   { path: '/settings', label: '系统设置', icon: Settings },
 ];
 
@@ -88,7 +88,7 @@ export default function AppSidebar() {
           </div>
           <div className="flex-1 min-w-0 group-data-[state=collapsed]:hidden">
             <div className="text-sm font-semibold truncate">{systemName}</div>
-            <div className="text-xs text-muted-foreground">CT15 · OpenHarmony</div>
+            <div className="text-xs text-muted-foreground">CT16 · OpenHarmony</div>
           </div>
         </div>
       </SidebarHeader>
@@ -126,7 +126,7 @@ export default function AppSidebar() {
           </div>
           <div className="flex-1 min-w-0 group-data-[state=collapsed]:hidden">
             <div className="text-xs font-medium truncate">Admin</div>
-            <div className="text-xs text-muted-foreground">系统管理员</div>
+            <div className="text-xs text-muted-foreground">系统管理�?/div>
           </div>
         </div>
       </SidebarFooter>

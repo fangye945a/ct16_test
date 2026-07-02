@@ -21,7 +21,7 @@ export default function LoginPage() {
   const handleLogin = (e: FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      toast.error('请输入用户名和密码');
+      toast.error('请输入用户名和密�?);
       return;
     }
 
@@ -32,7 +32,7 @@ export default function LoginPage() {
       const stored = localStorage.getItem('zaihong:credentials');
       if (!stored) {
         setLoading(false);
-        toast.error('尚未设置管理员账号');
+        toast.error('尚未设置管理员账�?);
         navigate('/setup');
         return;
       }
@@ -74,21 +74,20 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-xl font-black text-foreground">在鸿设备管理系统</h1>
-          <p className="text-sm text-muted-foreground mt-1">CT15 · OpenHarmony</p>
+          <p className="text-sm text-muted-foreground mt-1">CT16 · OpenHarmony</p>
         </div>
 
         <Card className="border-border/40 bg-card/60 shadow-sm">
           <CardHeader className="pb-4">
             <CardTitle className="text-base flex items-center gap-2">
               <Shield className="size-4 text-primary" />
-              管理员登录
-            </CardTitle>
-            <CardDescription>请输入管理员账号和密码</CardDescription>
+              管理员登�?            </CardTitle>
+            <CardDescription>请输入管理员账号和密�?/CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm">用户名</Label>
+                <Label htmlFor="username" className="text-sm">用户�?/Label>
                 <Input
                   id="username"
                   value={username}
@@ -107,7 +106,7 @@ export default function LoginPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="请输入密码"
+                    placeholder="请输入密�?
                     className="h-10 pr-10"
                     autoComplete="current-password"
                   />
@@ -128,15 +127,14 @@ export default function LoginPage() {
                   onCheckedChange={(v) => setRememberMe(v === true)}
                 />
                 <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
-                  记住我
-                </Label>
+                  记住�?                </Label>
               </div>
 
               <Button type="submit" className="w-full h-10" disabled={loading}>
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="size-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                    验证中...
+                    验证�?..
                   </span>
                 ) : (
                   <>

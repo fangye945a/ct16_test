@@ -22,7 +22,7 @@ export interface ISystemMetrics {
   diskUsage: number // 0-100
   networkIn: number // Mbps
   networkOut: number // Mbps
-  cpuTrend: number[] // 近10个采样点
+  cpuTrend: number[] // �?0个采样点
   memoryTrend: number[]
   diskTrend: number[]
   networkTrend: number[]
@@ -44,8 +44,8 @@ export interface IAlertEvent {
 
 export const MOCK_SYSTEM_INFO: ISystemInfo = {
   id: '1',
-  deviceName: '在鸿控制器',
-  model: 'CT15',
+  deviceName: '在鸿控制�?,
+  model: 'CT16',
   serialNumber: 'SN-2024X8A1',
   firmwareVersion: 'v2.1.4',
   startedAt: new Date(Date.now() - 15 * 24 * 3600 * 1000).toISOString(), // 15天前启动
@@ -71,7 +71,7 @@ export const MOCK_ALERT_EVENTS: IAlertEvent[] = [
     timestamp: new Date(Date.now() - 3600 * 1000).toISOString(),
     level: 'warning',
     source: '通信模块',
-    message: '4G信号强度低于阈值',
+    message: '4G信号强度低于阈�?,
   },
   {
     id: '2',

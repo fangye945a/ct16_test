@@ -1,6 +1,6 @@
 // EXPORTS: INetworkDevice, INetworkLink, IDeviceNode, IDeviceLink, IModuleSlot, IModuleChannel, MOCK_NETWORK_DEVICES, MOCK_NETWORK_LINKS, MOCK_DEVICE_NODES, MOCK_DEVICE_LINKS, MOCK_MODULE_SLOTS
 
-// ===== 一、组网拓扑（软总线超级终端）=====
+// ===== 一、组网拓扑（软总线超级终端�?====
 
 export interface INetworkDevice {
   id: string
@@ -31,14 +31,14 @@ export interface INetworkLink {
 export const MOCK_NETWORK_DEVICES: INetworkDevice[] = [
   {
     id: 'net-master',
-    name: 'CT15-Master-01',
-    model: 'CT15',
-    deviceType: 'CT15 在鸿控制器',
+    name: 'CT16-Master-01',
+    model: 'CT16',
+    deviceType: 'CT16 在鸿控制�?,
     role: 'master',
     status: 'online',
     ip: '192.168.1.10',
     firmware: 'v3.2.1',
-    uptime: '45天 12时 30分',
+    uptime: '45�?12�?30�?,
     latency: 0,
     throughput: '1.2 Gbps',
     angle: 0,
@@ -48,12 +48,12 @@ export const MOCK_NETWORK_DEVICES: INetworkDevice[] = [
     id: 'net-slave-01',
     name: 'CT16-Slave-01',
     model: 'CT16',
-    deviceType: 'CT16 控制器',
+    deviceType: 'CT16 控制�?,
     role: 'slave',
     status: 'online',
     ip: '192.168.1.11',
     firmware: 'v3.2.0',
-    uptime: '30天 8时 15分',
+    uptime: '30�?8�?15�?,
     latency: 3,
     throughput: '800 Mbps',
     angle: -72,
@@ -68,7 +68,7 @@ export const MOCK_NETWORK_DEVICES: INetworkDevice[] = [
     status: 'online',
     ip: '192.168.1.20',
     firmware: 'v2.8.5',
-    uptime: '60天 3时 42分',
+    uptime: '60�?3�?42�?,
     latency: 5,
     throughput: '950 Mbps',
     angle: -144,
@@ -78,12 +78,12 @@ export const MOCK_NETWORK_DEVICES: INetworkDevice[] = [
     id: 'net-slave-03',
     name: 'CT21B-IPC-01',
     model: 'CT21B',
-    deviceType: 'CT21B 工控机',
+    deviceType: 'CT21B 工控�?,
     role: 'slave',
     status: 'online',
     ip: '192.168.1.30',
     firmware: 'v4.1.0',
-    uptime: '22天 16时 8分',
+    uptime: '22�?16�?8�?,
     latency: 8,
     throughput: '620 Mbps',
     angle: 144,
@@ -98,7 +98,7 @@ export const MOCK_NETWORK_DEVICES: INetworkDevice[] = [
     status: 'offline',
     ip: '192.168.1.50',
     firmware: 'HarmonyOS 4.0',
-    uptime: '0天 0时 0分',
+    uptime: '0�?0�?0�?,
     latency: 0,
     throughput: '0 Mbps',
     angle: 72,
@@ -113,7 +113,7 @@ export const MOCK_NETWORK_DEVICES: INetworkDevice[] = [
     status: 'online',
     ip: '192.168.1.21',
     firmware: 'v2.8.5',
-    uptime: '35天 9时 20分',
+    uptime: '35�?9�?20�?,
     latency: 6,
     throughput: '880 Mbps',
     angle: 0,
@@ -159,21 +159,21 @@ export interface IDeviceLink {
 }
 
 export const MOCK_DEVICE_NODES: IDeviceNode[] = [
-  // ── 传感器类（3个）── ──
-  { id: 'dev-temp-1', name: '温度传感器', deviceType: '温度传感器', category: 'sensor', interfaceType: 'RS485', interfaceLabel: 'RS485-1', status: 'normal', value: '25.6', unit: '℃', address: 'MODBUS-0x01', description: '车间环境温度监测', location: '车间A区-东墙', lastUpdate: '2秒前', angle: -90, distance: 200, group: 'rs485' },
-  { id: 'dev-humi-1', name: '湿度传感器', deviceType: '湿度传感器', category: 'sensor', interfaceType: 'RS485', interfaceLabel: 'RS485-1', status: 'normal', value: '65', unit: '%RH', address: 'MODBUS-0x04', description: '仓库环境湿度监测', location: '原料仓库-中区', lastUpdate: '3秒前', angle: -50, distance: 205, group: 'rs485' },
-  { id: 'dev-pres-1', name: '压力变送器', deviceType: '压力变送器', category: 'sensor', interfaceType: 'AI', interfaceLabel: 'AI-01', status: 'normal', value: '0.85', unit: 'MPa', address: 'AI-CH01', description: '主管道压力监测', location: '1号生产线-主管道', lastUpdate: '1秒前', angle: -10, distance: 200, group: 'ai' },
+  // ── 传感器类�?个）── ──
+  { id: 'dev-temp-1', name: '温度传感�?, deviceType: '温度传感�?, category: 'sensor', interfaceType: 'RS485', interfaceLabel: 'RS485-1', status: 'normal', value: '25.6', unit: '�?, address: 'MODBUS-0x01', description: '车间环境温度监测', location: '车间A�?东墙', lastUpdate: '2秒前', angle: -90, distance: 200, group: 'rs485' },
+  { id: 'dev-humi-1', name: '湿度传感�?, deviceType: '湿度传感�?, category: 'sensor', interfaceType: 'RS485', interfaceLabel: 'RS485-1', status: 'normal', value: '65', unit: '%RH', address: 'MODBUS-0x04', description: '仓库环境湿度监测', location: '原料仓库-中区', lastUpdate: '3秒前', angle: -50, distance: 205, group: 'rs485' },
+  { id: 'dev-pres-1', name: '压力变送器', deviceType: '压力变送器', category: 'sensor', interfaceType: 'AI', interfaceLabel: 'AI-01', status: 'normal', value: '0.85', unit: 'MPa', address: 'AI-CH01', description: '主管道压力监�?, location: '1号生产线-主管�?, lastUpdate: '1秒前', angle: -10, distance: 200, group: 'ai' },
 
-  // ── 执行器类（3个）── ──
-  { id: 'dev-fan-1', name: '风机', deviceType: '风机', category: 'actuator', interfaceType: 'DO', interfaceLabel: 'DO-01', status: 'normal', value: '运行中', unit: '', address: 'DO-CH01', description: '车间通风主风机', location: '车间A区-屋顶', lastUpdate: '1秒前', angle: 50, distance: 200, group: 'do' },
-  { id: 'dev-valve-1', name: '调节阀', deviceType: '电动调节阀', category: 'actuator', interfaceType: 'AO', interfaceLabel: 'AO-01', status: 'normal', value: '45', unit: '%', address: 'AO-CH01', description: '冷却水流量调节阀', location: '冷却系统-进水口', lastUpdate: '3秒前', angle: 110, distance: 200, group: 'ao' },
-  { id: 'dev-light-1', name: '交通信号灯', deviceType: '信号灯', category: 'actuator', interfaceType: 'DO', interfaceLabel: 'DO组-01', status: 'normal', value: '绿灯亮', unit: '', address: 'DO-CH04-06', description: '车间通道交通指示', location: '车间通道-交叉口', lastUpdate: '1秒前', angle: 170, distance: 205, group: 'do' },
+  // ── 执行器类�?个）── ──
+  { id: 'dev-fan-1', name: '风机', deviceType: '风机', category: 'actuator', interfaceType: 'DO', interfaceLabel: 'DO-01', status: 'normal', value: '运行�?, unit: '', address: 'DO-CH01', description: '车间通风主风�?, location: '车间A�?屋顶', lastUpdate: '1秒前', angle: 50, distance: 200, group: 'do' },
+  { id: 'dev-valve-1', name: '调节阀', deviceType: '电动调节阀', category: 'actuator', interfaceType: 'AO', interfaceLabel: 'AO-01', status: 'normal', value: '45', unit: '%', address: 'AO-CH01', description: '冷却水流量调节阀', location: '冷却系统-进水�?, lastUpdate: '3秒前', angle: 110, distance: 200, group: 'ao' },
+  { id: 'dev-light-1', name: '交通信号灯', deviceType: '信号�?, category: 'actuator', interfaceType: 'DO', interfaceLabel: 'DO�?01', status: 'normal', value: '绿灯�?, unit: '', address: 'DO-CH04-06', description: '车间通道交通指�?, location: '车间通道-交叉�?, lastUpdate: '1秒前', angle: 170, distance: 205, group: 'do' },
 
   // ── 输入设备类（1个）── ──
-  { id: 'dev-btn-1', name: '按钮', deviceType: '按钮开关', category: 'input', interfaceType: 'DI', interfaceLabel: 'DI-01', status: 'normal', value: '未按下', unit: '', address: 'DI-CH01', description: '急停按钮（主回路）', location: '1号生产线-操作台', lastUpdate: '1秒前', angle: 230, distance: 200, group: 'di' },
+  { id: 'dev-btn-1', name: '按钮', deviceType: '按钮开�?, category: 'input', interfaceType: 'DI', interfaceLabel: 'DI-01', status: 'normal', value: '未按�?, unit: '', address: 'DI-CH01', description: '急停按钮（主回路�?, location: '1号生产线-操作�?, lastUpdate: '1秒前', angle: 230, distance: 200, group: 'di' },
 
-  // ── 其他设备（1个）── ──
-  { id: 'dev-plc-1', name: '小型PLC', deviceType: 'PLC控制器', category: 'other', interfaceType: 'ETH', interfaceLabel: 'ETH', status: 'normal', value: '在线', unit: '', address: '192.168.1.50', description: '辅助产线逻辑控制', location: '2号生产线-控制柜', lastUpdate: '1秒前', angle: 290, distance: 200, group: 'eth' },
+  // ── 其他设备�?个）── ──
+  { id: 'dev-plc-1', name: '小型PLC', deviceType: 'PLC控制�?, category: 'other', interfaceType: 'ETH', interfaceLabel: 'ETH', status: 'normal', value: '在线', unit: '', address: '192.168.1.50', description: '辅助产线逻辑控制', location: '2号生产线-控制�?, lastUpdate: '1秒前', angle: 290, distance: 200, group: 'eth' },
 ];
 
 export const MOCK_DEVICE_LINKS: IDeviceLink[] = MOCK_DEVICE_NODES.map((node) => ({
@@ -184,7 +184,7 @@ export const MOCK_DEVICE_LINKS: IDeviceLink[] = MOCK_DEVICE_NODES.map((node) => 
   label: node.interfaceLabel,
 }));
 
-// ===== 三、模块拓扑（设备内部扩展模块）=====
+// ===== 三、模块拓扑（设备内部扩展模块�?====
 
 export interface IModuleChannel {
   index: number
@@ -208,11 +208,10 @@ export interface IModuleSlot {
 }
 
 export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
-  // 左侧：主控单元
-  {
+  // 左侧：主控单�?  {
     id: 'mod-main',
     slotNumber: 0,
-    model: 'CT15-MAIN',
+    model: 'CT16-MAIN',
     name: '主控模块',
     type: '主控单元',
     spec: 'HPM6754 双核 RISC-V 800MHz',
@@ -231,15 +230,15 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
   {
     id: 'mod-wireless-1',
     slotNumber: 1,
-    model: 'CT15-4G',
+    model: 'CT16-4G',
     name: '4G/WiFi 模块',
     type: '无线通信',
     spec: '4G LTE + WiFi 2.4G/5G',
     status: 'normal',
     channels: 2,
     channelList: [
-      { index: 1, label: '4G', status: 'normal', value: '已连接', unit: '' },
-      { index: 2, label: 'WiFi', status: 'normal', value: '已连接', unit: '' },
+      { index: 1, label: '4G', status: 'normal', value: '已连�?, unit: '' },
+      { index: 2, label: 'WiFi', status: 'normal', value: '已连�?, unit: '' },
     ],
     position: 'left',
   },
@@ -247,15 +246,15 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
   {
     id: 'mod-wireless-2',
     slotNumber: 2,
-    model: 'CT15-BLE',
+    model: 'CT16-BLE',
     name: '蓝牙/星闪 模块',
     type: '无线通信',
     spec: 'BLE 5.2 + 星闪 1.0',
     status: 'normal',
     channels: 2,
     channelList: [
-      { index: 1, label: 'BLE', status: 'normal', value: '已连接', unit: '' },
-      { index: 2, label: '星闪', status: 'normal', value: '已连接', unit: '' },
+      { index: 1, label: 'BLE', status: 'normal', value: '已连�?, unit: '' },
+      { index: 2, label: '星闪', status: 'normal', value: '已连�?, unit: '' },
     ],
     position: 'left',
   },
@@ -264,9 +263,9 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
     id: 'mod-di16',
     slotNumber: 3,
     model: 'CTS-DI16',
-    name: '数字量输入模块',
+    name: '数字量输入模�?,
     type: 'DI 输入',
-    spec: '16路 NPN/PNP 24VDC',
+    spec: '16�?NPN/PNP 24VDC',
     status: 'normal',
     channels: 16,
     channelList: Array.from({ length: 16 }, (_, i) => ({
@@ -282,9 +281,9 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
     id: 'mod-do16',
     slotNumber: 4,
     model: 'CTS-DO16N',
-    name: '数字量输出模块',
+    name: '数字量输出模�?,
     type: 'DO 输出',
-    spec: '16路 NPN 晶体管 24VDC',
+    spec: '16�?NPN 晶体�?24VDC',
     status: 'normal',
     channels: 16,
     channelList: Array.from({ length: 16 }, (_, i) => ({
@@ -300,9 +299,9 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
     id: 'mod-ai8',
     slotNumber: 5,
     model: 'CTS-AI8',
-    name: '模拟量输入模块',
+    name: '模拟量输入模�?,
     type: 'AI 输入',
-    spec: '8路 4-20mA / 0-10V',
+    spec: '8�?4-20mA / 0-10V',
     status: 'normal',
     channels: 8,
     channelList: [
@@ -321,9 +320,9 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
     id: 'mod-ao8',
     slotNumber: 6,
     model: 'CTS-AO8',
-    name: '模拟量输出模块',
+    name: '模拟量输出模�?,
     type: 'AO 输出',
-    spec: '8路 4-20mA / 0-10V',
+    spec: '8�?4-20mA / 0-10V',
     status: 'normal',
     channels: 8,
     channelList: Array.from({ length: 8 }, (_, i) => ({
@@ -341,7 +340,7 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
     model: 'CTS-RS485',
     name: '串口扩展模块',
     type: 'RS485 通信',
-    spec: '2路 RS485 隔离',
+    spec: '2�?RS485 隔离',
     status: 'normal',
     channels: 2,
     channelList: [
@@ -354,8 +353,8 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
     id: 'mod-empty',
     slotNumber: 8,
     model: '--',
-    name: '空槽位',
-    type: '可扩展',
+    name: '空槽�?,
+    type: '可扩�?,
     spec: '支持 DI/DO/AI/AO/RS485',
     status: 'empty',
     channels: 0,

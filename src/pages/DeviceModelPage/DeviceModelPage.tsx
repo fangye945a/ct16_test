@@ -51,7 +51,7 @@ import {
 import { toast } from 'sonner';
 import { MOCK_DEVICE_MODELS, type IDeviceModel, type IDataPoint } from '@/data/device-models';
 
-const DEVICE_TYPES = ['all', '传感器', '仪表', '驱动器', '控制器'];
+const DEVICE_TYPES = ['all', '传感�?, '仪表', '驱动�?, '控制�?];
 
 function ModelDetailDialog({
   model,
@@ -72,7 +72,7 @@ function ModelDetailDialog({
             <Boxes className="size-5 text-primary" />
             {model.name}
             <Badge className={model.status === 'synced' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}>
-              {model.status === 'synced' ? '已同步' : '未同步'}
+              {model.status === 'synced' ? '已同�? : '未同�?}
             </Badge>
           </DialogTitle>
           <DialogDescription>
@@ -83,19 +83,19 @@ function ModelDetailDialog({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <span className="text-muted-foreground">设备类型：</span>
+              <span className="text-muted-foreground">设备类型�?/span>
               <span className="font-medium">{model.type}</span>
             </div>
             <div>
-              <span className="text-muted-foreground">版本：</span>
+              <span className="text-muted-foreground">版本�?/span>
               <span className="font-medium">{model.version}</span>
             </div>
             <div>
-              <span className="text-muted-foreground">创建时间：</span>
+              <span className="text-muted-foreground">创建时间�?/span>
               <span className="font-medium">{model.createdAt}</span>
             </div>
             <div>
-              <span className="text-muted-foreground">数据点数：</span>
+              <span className="text-muted-foreground">数据点数�?/span>
               <span className="font-medium">{model.dataPointCount}</span>
             </div>
           </div>
@@ -115,13 +115,13 @@ function ModelDetailDialog({
           </div>
 
           <div>
-            <div className="text-sm font-semibold mb-2">数据点列表</div>
+            <div className="text-sm font-semibold mb-2">数据点列�?/div>
             <div className="border border-border/40 rounded-xl overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="whitespace-nowrap text-xs">名称</TableHead>
-                    <TableHead className="whitespace-nowrap text-xs">标识符</TableHead>
+                    <TableHead className="whitespace-nowrap text-xs">标识�?/TableHead>
                     <TableHead className="whitespace-nowrap text-xs">类型</TableHead>
                     <TableHead className="whitespace-nowrap text-xs">读写</TableHead>
                     <TableHead className="whitespace-nowrap text-xs">单位</TableHead>
@@ -169,13 +169,13 @@ function AddModelDialog({
   onAdd: (name: string, type: string, version: string, desc: string) => void;
 }) {
   const [name, setName] = useState('');
-  const [type, setType] = useState('传感器');
+  const [type, setType] = useState('传感�?);
   const [version, setVersion] = useState('v1.0');
   const [desc, setDesc] = useState('');
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { toast.error('请输入模型名称'); return; }
+    if (!name.trim()) { toast.error('请输入模型名�?); return; }
     onAdd(name.trim(), type, version.trim() || 'v1.0', desc.trim());
     setName('');
     setDesc('');
@@ -209,7 +209,7 @@ function AddModelDialog({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label className="text-sm">版本号</Label>
+            <Label className="text-sm">版本�?/Label>
             <Input value={version} onChange={(e) => setVersion(e.target.value)} placeholder="v1.0" className="h-9" />
           </div>
           <div className="space-y-2">
@@ -237,8 +237,8 @@ function UploadToCloudDialog({
   onClose: () => void;
   onUpload: (id: string) => void;
 }) {
-  const [category, setCategory] = useState('传感器');
-  const [deviceModel, setDeviceModel] = useState('CT15');
+  const [category, setCategory] = useState('传感�?);
+  const [deviceModel, setDeviceModel] = useState('CT16');
   const [version, setVersion] = useState(model?.version || 'v1.0');
   const [desc, setDesc] = useState(model?.description || '');
   const [tags, setTags] = useState(model?.tags.join(', ') || '');
@@ -263,7 +263,7 @@ function UploadToCloudDialog({
             <Upload className="size-5 text-primary" />
             上传到云平台
           </DialogTitle>
-          <DialogDescription>将「{model.name}」上传到云端设备模型库</DialogDescription>
+          <DialogDescription>将「{model.name}」上传到云端设备模型�?/DialogDescription>
         </DialogHeader>
         <form onSubmit={handleUpload} className="space-y-4">
           <div className="space-y-2">
@@ -286,7 +286,7 @@ function UploadToCloudDialog({
             <Input value={deviceModel} onChange={(e) => setDeviceModel(e.target.value)} className="h-9" />
           </div>
           <div className="space-y-2">
-            <Label className="text-sm">版本号</Label>
+            <Label className="text-sm">版本�?/Label>
             <Input value={version} onChange={(e) => setVersion(e.target.value)} className="h-9" />
           </div>
           <div className="space-y-2">
@@ -294,14 +294,14 @@ function UploadToCloudDialog({
             <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} className="h-16 text-sm" />
           </div>
           <div className="space-y-2">
-            <Label className="text-sm">标签/关键词（逗号分隔）</Label>
-            <Input value={tags} onChange={(e) => setTags(e.target.value)} className="h-9" placeholder="传感器, Modbus, 温湿度" />
+            <Label className="text-sm">标签/关键词（逗号分隔�?/Label>
+            <Input value={tags} onChange={(e) => setTags(e.target.value)} className="h-9" placeholder="传感�? Modbus, 温湿�? />
           </div>
           <DialogFooter>
             <Button variant="outline" type="button" onClick={onClose}>取消</Button>
             <Button type="submit" disabled={uploading}>
               {uploading ? (
-                <><Loader2 className="size-4 mr-1 animate-spin" />上传中...</>
+                <><Loader2 className="size-4 mr-1 animate-spin" />上传�?..</>
               ) : (
                 <><Upload className="size-4 mr-1" />确认上传</>
               )}
@@ -352,13 +352,13 @@ export default function DeviceModelPage() {
       tags: [type],
     };
     setModels((prev) => [newModel, ...prev]);
-    toast.success(`模型「${name}」已创建`);
+    toast.success(`模型�?{name}」已创建`);
   };
 
   const handleDelete = (id: string) => {
     const m = models.find((x) => x.id === id);
     setModels((prev) => prev.filter((x) => x.id !== id));
-    toast.success(`模型「${m?.name}」已删除`);
+    toast.success(`模型�?{m?.name}」已删除`);
   };
 
   const handleSync = async () => {
@@ -366,12 +366,12 @@ export default function DeviceModelPage() {
     await new Promise((r) => setTimeout(r, 2000));
     setModels((prev) => prev.map((m) => ({ ...m, status: 'synced' as const })));
     setSyncing(false);
-    toast.success('已从云平台同步最新设备模型');
+    toast.success('已从云平台同步最新设备模�?);
   };
 
   const handleUploadToCloud = (id: string) => {
     setModels((prev) => prev.map((m) => m.id === id ? { ...m, status: 'synced' as const } : m));
-    toast.success('模型已上传到云平台');
+    toast.success('模型已上传到云平�?);
   };
 
   return (
@@ -383,11 +383,11 @@ export default function DeviceModelPage() {
       >
         <div>
           <h1 className="text-2xl font-black text-foreground">设备模型管理</h1>
-          <p className="text-sm text-muted-foreground mt-1">管理 DSDK 设备模型，支持与云平台同步</p>
+          <p className="text-sm text-muted-foreground mt-1">管理 DSDK 设备模型，支持与云平台同�?/p>
         </div>
       </motion.div>
 
-      {/* 工具栏 */}
+      {/* 工具�?*/}
       <Card className="border-border/40 bg-card/60">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -397,7 +397,7 @@ export default function DeviceModelPage() {
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="搜索模型名称或标签..."
+                placeholder="搜索模型名称或标�?.."
                 className="pl-9 h-9 text-sm"
               />
             </div>
@@ -417,7 +417,7 @@ export default function DeviceModelPage() {
             <div className="flex items-center gap-2 ml-auto">
               <Button variant="outline" size="sm" className="h-9" onClick={handleSync} disabled={syncing}>
                 {syncing ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <Download className="size-3.5 mr-1" />}
-                {syncing ? '同步中...' : '同步云平台'}
+                {syncing ? '同步�?..' : '同步云平�?}
               </Button>
               <Button size="sm" className="h-9" onClick={() => setAddOpen(true)}>
                 <Plus className="size-3.5 mr-1" />
@@ -453,7 +453,7 @@ export default function DeviceModelPage() {
                     </div>
                     <Badge className={model.status === 'synced' ? 'bg-success/10 text-success text-[10px]' : 'bg-warning/10 text-warning text-[10px]'}>
                       {model.status === 'synced' ? <CheckCircle2 className="size-2.5 mr-1" /> : <CloudOff className="size-2.5 mr-1" />}
-                      {model.status === 'synced' ? '已同步' : '未同步'}
+                      {model.status === 'synced' ? '已同�? : '未同�?}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -462,8 +462,7 @@ export default function DeviceModelPage() {
                   <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
                     <span className="flex items-center gap-1">
                       <Hash className="size-3" />
-                      {model.dataPointCount} 数据点
-                    </span>
+                      {model.dataPointCount} 数据�?                    </span>
                     <span className="flex items-center gap-1">
                       <Clock className="size-3" />
                       {model.createdAt}
@@ -514,7 +513,7 @@ export default function DeviceModelPage() {
       {filtered.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <Boxes className="size-12 mx-auto mb-3 opacity-20" />
-          <div className="text-sm font-medium">没有找到匹配的设备模型</div>
+          <div className="text-sm font-medium">没有找到匹配的设备模�?/div>
         </div>
       )}
 
