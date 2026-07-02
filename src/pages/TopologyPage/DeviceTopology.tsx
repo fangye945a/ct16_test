@@ -13,7 +13,8 @@ function DeviceIcon({ deviceType, status, size = 34 }: { deviceType: string; sta
   const fillBg = isNormal ? '#00B89412' : isWarning ? '#F9731612' : '#9CA3AF12';
   const strokeColor = fillColor;
 
-  // 温度传感�?  if (deviceType === '温度传感�?) {
+  // 温度传感器
+  if (deviceType === '温度传感器') {
     return (
       <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
         <rect x="12" y="4" width="10" height="20" rx="5" fill={fillBg} stroke={strokeColor} strokeWidth="1.5" />
@@ -23,7 +24,8 @@ function DeviceIcon({ deviceType, status, size = 34 }: { deviceType: string; sta
     );
   }
 
-  // 湿度传感�?  if (deviceType === '湿度传感�?) {
+  // 湿度传感器
+  if (deviceType === '湿度传感器') {
     return (
       <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
         <path d="M17 4C17 4 8 16 8 22C8 26.97 12.03 31 17 31C21.97 31 26 26.97 26 22C26 16 17 4 17 4Z" fill={fillBg} stroke={strokeColor} strokeWidth="1.5" />
@@ -44,7 +46,8 @@ function DeviceIcon({ deviceType, status, size = 34 }: { deviceType: string; sta
     );
   }
 
-  // 液位传感�?  if (deviceType === '液位传感�?) {
+  // 液位传感器
+  if (deviceType === '液位传感器') {
     return (
       <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
         <rect x="8" y="4" width="18" height="26" rx="4" fill={fillBg} stroke={strokeColor} strokeWidth="1.5" />
@@ -56,7 +59,8 @@ function DeviceIcon({ deviceType, status, size = 34 }: { deviceType: string; sta
     );
   }
 
-  // 电磁流量�?  if (deviceType === '电磁流量�?) {
+  // 电磁流量计
+  if (deviceType === '电磁流量计') {
     return (
       <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
         <rect x="3" y="11" width="28" height="12" rx="6" fill={fillBg} stroke={strokeColor} strokeWidth="1.5" />
@@ -94,7 +98,8 @@ function DeviceIcon({ deviceType, status, size = 34 }: { deviceType: string; sta
     );
   }
 
-  // 信号�?  if (deviceType === '信号�?) {
+  // 信号灯
+  if (deviceType === '信号灯') {
     return (
       <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
         <rect x="10" y="3" width="14" height="28" rx="7" fill={fillBg} stroke={strokeColor} strokeWidth="1.5" />
@@ -118,7 +123,8 @@ function DeviceIcon({ deviceType, status, size = 34 }: { deviceType: string; sta
     );
   }
 
-  // 按钮开�?  if (deviceType === '按钮开�?) {
+  // 按钮开关
+  if (deviceType === '按钮开关') {
     return (
       <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
         <circle cx="17" cy="17" r="12" fill={fillBg} stroke={strokeColor} strokeWidth="1.5" />
@@ -128,7 +134,8 @@ function DeviceIcon({ deviceType, status, size = 34 }: { deviceType: string; sta
     );
   }
 
-  // 接近开�?  if (deviceType === '接近开�?) {
+  // 接近开关
+  if (deviceType === '接近开关') {
     return (
       <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
         <rect x="6" y="6" width="22" height="22" rx="4" fill={fillBg} stroke={strokeColor} strokeWidth="1.5" />
@@ -139,7 +146,8 @@ function DeviceIcon({ deviceType, status, size = 34 }: { deviceType: string; sta
     );
   }
 
-  // PLC控制�?  if (deviceType === 'PLC控制�?) {
+  // PLC控制器
+  if (deviceType === 'PLC控制器') {
     return (
       <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
         <rect x="3" y="5" width="28" height="24" rx="4" fill={fillBg} stroke={strokeColor} strokeWidth="1.5" />
@@ -151,7 +159,8 @@ function DeviceIcon({ deviceType, status, size = 34 }: { deviceType: string; sta
     );
   }
 
-  // 工业显示�?  if (deviceType === '工业显示�?) {
+  // 工业显示屏
+  if (deviceType === '工业显示屏') {
     return (
       <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
         <rect x="4" y="4" width="26" height="20" rx="4" fill={fillBg} stroke={strokeColor} strokeWidth="1.5" />
@@ -211,7 +220,7 @@ function DeviceNodeCard({ node, onSelect }: { node: IDeviceNode; onSelect: (n: I
           <div className="text-[10px] font-black text-[#111827] truncate leading-tight">{node.name}</div>
         </div>
 
-        {/* 数�?+ 状�?*/}
+        {/* 数值 + 状态 */}
         <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-[#F3F4F6]">
           <span className={`text-xs font-black tabular-nums ${textColor}`}>
             {node.value}
@@ -227,13 +236,13 @@ function DeviceNodeCard({ node, onSelect }: { node: IDeviceNode; onSelect: (n: I
 // ── 分类标签 ──────────────────────────────────────────────────
 
 const CATEGORY_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  sensor: { label: '传感�?, color: '#00B894', bg: '#00B89412' },
-  actuator: { label: '执行�?, color: '#F97316', bg: '#F9731612' },
+  sensor: { label: '传感器', color: '#00B894', bg: '#00B89412' },
+  actuator: { label: '执行器', color: '#F97316', bg: '#F9731612' },
   input: { label: '输入设备', color: '#6366F1', bg: '#6366F112' },
   other: { label: '其他设备', color: '#1F2937', bg: '#1F293712' },
 };
 
-// ── 主组�?────────────────────────────────────────────────────
+// ── 主组件 ────────────────────────────────────────────────────
 
 export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (n: IDeviceNode) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -279,10 +288,10 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (n: IDe
 
   return (
     <div className="relative bg-white rounded-[48px] border border-[#F3F4F6] shadow-sm overflow-hidden">
-      {/* ── 工具�?── */}
+      {/* ── 工具栏 ── */}
       <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
         <button onClick={zoomIn} className="size-9 rounded-2xl bg-[#F9FAFB] border border-[#F3F4F6] flex items-center justify-center text-[#9CA3AF] hover:text-[#00B894] hover:border-[#00B894]/30 transition-all text-sm font-black">+</button>
-        <button onClick={zoomOut} className="size-9 rounded-2xl bg-[#F9FAFB] border border-[#F3F4F6] flex items-center justify-center text-[#9CA3AF] hover:text-[#00B894] hover:border-[#00B894]/30 transition-all text-sm font-black">�?/button>
+        <button onClick={zoomOut} className="size-9 rounded-2xl bg-[#F9FAFB] border border-[#F3F4F6] flex items-center justify-center text-[#9CA3AF] hover:text-[#00B894] hover:border-[#00B894]/30 transition-all text-sm font-black">−</button>
         <button onClick={resetView} className="px-3 py-2 rounded-2xl bg-[#F9FAFB] border border-[#F3F4F6] text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest hover:text-[#00B894] hover:border-[#00B894]/30 transition-all">适应</button>
       </div>
 
@@ -326,7 +335,7 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (n: IDe
           className="absolute inset-0 transition-transform duration-75"
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }}
         >
-          {/* ── SVG 连线�?── */}
+          {/* ── SVG 连线层 ── */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: 'visible' }}>
             {/* 分类区域弧线 */}
             {Object.entries(CATEGORY_LABELS).map(([key, cfg]) => {
@@ -359,7 +368,7 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (n: IDe
               );
             })}
 
-            {/* 设备连接�?*/}
+            {/* 设备连接线 */}
             {devices.map((device) => {
               const xPct = 50 + (Math.cos((device.angle * Math.PI) / 180) * device.distance) / (containerRef.current?.clientWidth || 1200) * 100;
               const yPct = 50 + (Math.sin((device.angle * Math.PI) / 180) * device.distance) / (containerRef.current?.clientHeight || 620) * 100;
@@ -395,7 +404,7 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (n: IDe
             })}
           </svg>
 
-          {/* ── 中心控制�?── */}
+          {/* ── 中心控制器 ── */}
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
             <Card className="px-5 py-4 rounded-[32px] border-2 border-[#00B894]/20 bg-white shadow-lg min-w-[180px]">
               <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-[#00B894] text-white border-[#00B894]">
@@ -413,10 +422,10 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (n: IDe
                   </svg>
                 </div>
                 <div>
-                  <div className="text-sm font-black text-[#111827]">CT16 在鸿控制�?/div>
+                  <div className="text-sm font-black text-[#111827]">CT16 在鸿控制器</div>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="size-2 rounded-full bg-[#00B894] animate-pulse" />
-                    <span className="text-[10px] font-black text-[#00B894] uppercase">运行�?/span>
+                    <span className="text-[10px] font-black text-[#00B894] uppercase">运行中</span>
                   </div>
                 </div>
               </div>

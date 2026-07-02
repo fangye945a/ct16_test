@@ -53,7 +53,7 @@ function DIControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => v
     >
       <div className="flex items-center justify-between mb-5">
         <div>
-          <div className="text-base font-black text-[#111827]">{slot.model} 通道状�?/div>
+          <div className="text-base font-black text-[#111827]">{slot.model} 通道状态</div>
           <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider mt-0.5">16路数字量输入</div>
         </div>
         <button onClick={onClose} className="size-8 rounded-xl bg-[#F9FAFB] flex items-center justify-center text-[#9CA3AF] hover:text-[#111827] transition-colors">
@@ -143,7 +143,7 @@ function AIControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => v
     >
       <div className="flex items-center justify-between mb-5">
         <div>
-          <div className="text-base font-black text-[#111827]">{slot.model} 实时数�?/div>
+          <div className="text-base font-black text-[#111827]">{slot.model} 实时数值</div>
           <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider mt-0.5">8路模拟量输入</div>
         </div>
         <button onClick={onClose} className="size-8 rounded-xl bg-[#F9FAFB] flex items-center justify-center text-[#9CA3AF] hover:text-[#111827] transition-colors">
@@ -243,7 +243,7 @@ function RS485ControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () =
       <div className="flex items-center justify-between mb-5">
         <div>
           <div className="text-base font-black text-[#111827]">{slot.model} 接口配置</div>
-          <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider mt-0.5">2�?RS485 隔离通信</div>
+          <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider mt-0.5">2路 RS485 隔离通信</div>
         </div>
         <button onClick={onClose} className="size-8 rounded-xl bg-[#F9FAFB] flex items-center justify-center text-[#9CA3AF] hover:text-[#111827] transition-colors">
           <X className="size-4" />
@@ -258,23 +258,24 @@ function RS485ControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () =
                 <span className="text-sm font-black text-[#111827]">{ch.label}</span>
               </div>
               <Badge className="text-[9px] font-black bg-[#00B894]/10 text-[#00B894] border-[#00B894]/20 rounded-full px-2 py-0.5">
-                已连�?              </Badge>
+                已连接
+              </Badge>
             </div>
             <div className="grid grid-cols-2 gap-2 text-[10px]">
               <div className="flex justify-between p-2 rounded-xl bg-white">
-                <span className="text-[#9CA3AF] font-bold">波特�?/span>
+                <span className="text-[#9CA3AF] font-bold">波特率</span>
                 <span className="font-black text-[#111827]">{ch.value}</span>
               </div>
               <div className="flex justify-between p-2 rounded-xl bg-white">
-                <span className="text-[#9CA3AF] font-bold">数据�?/span>
+                <span className="text-[#9CA3AF] font-bold">数据位</span>
                 <span className="font-black text-[#111827]">8</span>
               </div>
               <div className="flex justify-between p-2 rounded-xl bg-white">
-                <span className="text-[#9CA3AF] font-bold">校验�?/span>
+                <span className="text-[#9CA3AF] font-bold">校验位</span>
                 <span className="font-black text-[#111827]">None</span>
               </div>
               <div className="flex justify-between p-2 rounded-xl bg-white">
-                <span className="text-[#9CA3AF] font-bold">停止�?/span>
+                <span className="text-[#9CA3AF] font-bold">停止位</span>
                 <span className="font-black text-[#111827]">1</span>
               </div>
             </div>
@@ -292,13 +293,13 @@ type WirelessOption = { key: string; label: string; icon: React.ComponentType<{ 
 const SLOT1_OPTIONS: WirelessOption[] = [
   { key: '4g', label: '4G 模块', icon: Radio, color: '#6366F1' },
   { key: 'wifi', label: 'WiFi 模块', icon: Wifi, color: '#00B894' },
-  { key: 'none', label: '未安�?, icon: X, color: '#9CA3AF' },
+  { key: 'none', label: '未安装', icon: X, color: '#9CA3AF' },
 ];
 
 const SLOT2_OPTIONS: WirelessOption[] = [
   { key: 'ble', label: '蓝牙模块', icon: Bluetooth, color: '#00B894' },
   { key: 'slb', label: '星闪模块', icon: Radio, color: '#6366F1' },
-  { key: 'none', label: '未安�?, icon: X, color: '#9CA3AF' },
+  { key: 'none', label: '未安装', icon: X, color: '#9CA3AF' },
 ];
 
 function WirelessSlotCard({
@@ -350,7 +351,7 @@ function WirelessSlotCard({
               className="rounded-full px-2 py-0"
               style={{ color: selected.color, borderColor: `${selected.color}30`, backgroundColor: `${selected.color}08` }}
             >
-              已安�?· 正常运行
+              已安装 · 正常运行
             </Badge>
           </div>
         )}
@@ -421,8 +422,8 @@ function MainControlUnit() {
             <Cpu className="size-5 text-[#00B894]" />
           </div>
           <div>
-            <div className="text-sm font-black text-[#111827]">CT16 在鸿控制�?/div>
-            <div className="text-[10px] font-bold text-[#9CA3AF]">开鸿智�?· OpenHarmony</div>
+            <div className="text-sm font-black text-[#111827]">CT16 在鸿控制器</div>
+            <div className="text-[10px] font-bold text-[#9CA3AF]">开鸿智谷 · OpenHarmony</div>
           </div>
         </div>
         {/* Status LEDs */}
@@ -469,9 +470,9 @@ function MainControlUnit() {
         </div>
       </Card>
 
-      {/* Wireless slots - 可切�?*/}
+      {/* Wireless slots - 可切换 */}
       <Card className="p-4 rounded-[32px] border border-[#F3F4F6] shadow-sm bg-white">
-        <div className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-3">无线扩展�?/div>
+        <div className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-3">无线扩展槽</div>
         <div className="space-y-3">
           <WirelessSlotCard
             slotLabel="4G/WiFi 模块槽位"
@@ -557,7 +558,7 @@ function IOModuleCard({
         {slot.status === 'empty' && (
           <div className="flex flex-col items-center gap-2 py-4 text-[#D1D5DB]">
             <Plus className="size-6" />
-            <span className="text-[10px] font-bold">可扩展槽�?/span>
+            <span className="text-[10px] font-bold">可扩展槽位</span>
           </div>
         )}
 
@@ -609,8 +610,8 @@ export default function ModuleTopology() {
                 <Cable className="size-4 text-[#1F2937]" />
               </div>
               <div>
-                <div className="text-sm font-black text-[#111827]">IO 扩展模块�?/div>
-                <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">刀片式模块化扩�?/div>
+                <div className="text-sm font-black text-[#111827]">IO 扩展模块组</div>
+                <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">刀片式模块化扩展</div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">

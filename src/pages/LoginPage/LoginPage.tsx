@@ -21,7 +21,7 @@ export default function LoginPage() {
   const handleLogin = (e: FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      toast.error('请输入用户名和密�?);
+      toast.error('请输入用户名和密码');
       return;
     }
 
@@ -32,7 +32,7 @@ export default function LoginPage() {
       const stored = localStorage.getItem('zaihong:credentials');
       if (!stored) {
         setLoading(false);
-        toast.error('尚未设置管理员账�?);
+        toast.error('尚未设置管理员账号');
         navigate('/setup');
         return;
       }
@@ -81,13 +81,14 @@ export default function LoginPage() {
           <CardHeader className="pb-4">
             <CardTitle className="text-base flex items-center gap-2">
               <Shield className="size-4 text-primary" />
-              管理员登�?            </CardTitle>
-            <CardDescription>请输入管理员账号和密�?/CardDescription>
+              管理员登录
+            </CardTitle>
+            <CardDescription>请输入管理员账号和密码</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm">用户�?/Label>
+                <Label htmlFor="username" className="text-sm">用户名</Label>
                 <Input
                   id="username"
                   value={username}
@@ -106,7 +107,7 @@ export default function LoginPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="请输入密�?
+                    placeholder="请输入密码"
                     className="h-10 pr-10"
                     autoComplete="current-password"
                   />
@@ -127,14 +128,15 @@ export default function LoginPage() {
                   onCheckedChange={(v) => setRememberMe(v === true)}
                 />
                 <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
-                  记住�?                </Label>
+                  记住我
+                </Label>
               </div>
 
               <Button type="submit" className="w-full h-10" disabled={loading}>
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="size-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                    验证�?..
+                    验证中...
                   </span>
                 ) : (
                   <>
