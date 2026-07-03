@@ -20,7 +20,7 @@ import {
   Settings2,
   Cable,
 } from 'lucide-react';
-import { MOCK_MODULE_SLOTS, type IModuleSlot, type IModuleChannel } from '@/data/topology';
+import { MOCK_IO_MODULE_COUNT, MOCK_MODULE_SLOTS, type IModuleSlot, type IModuleChannel } from '@/data/topology';
 
 const STATUS_COLORS = {
   normal: { dot: 'bg-[#00B894]', text: 'text-[#00B894]', bg: 'bg-[#00B894]/10', border: 'border-[#00B894]/30' },
@@ -29,6 +29,25 @@ const STATUS_COLORS = {
   off: { dot: 'bg-[#9CA3AF]', text: 'text-[#9CA3AF]', bg: 'bg-[#9CA3AF]/10', border: 'border-[#9CA3AF]/30' },
   empty: { dot: 'bg-[#E5E7EB]', text: 'text-[#D1D5DB]', bg: 'bg-[#F9FAFB]', border: 'border-[#E5E7EB]' },
 };
+
+function ModuleMeta({ slot }: { slot: IModuleSlot }) {
+  return (
+    <div className="mt-2 grid grid-cols-3 gap-2 text-[9px]">
+      <div className="rounded-xl bg-[#F9FAFB] px-2 py-1">
+        <div className="font-bold text-[#9CA3AF]">槽位</div>
+        <div className="font-black text-[#111827] tabular-nums">#{slot.slotNumber}</div>
+      </div>
+      <div className="rounded-xl bg-[#F9FAFB] px-2 py-1">
+        <div className="font-bold text-[#9CA3AF]">版本</div>
+        <div className="font-black text-[#111827] tabular-nums">{slot.version}</div>
+      </div>
+      <div className="rounded-xl bg-[#F9FAFB] px-2 py-1">
+        <div className="font-bold text-[#9CA3AF]">ADC</div>
+        <div className="font-black text-[#111827] tabular-nums">{slot.adcValue}</div>
+      </div>
+    </div>
+  );
+}
 
 function ChannelIndicator({ channel }: { channel: IModuleChannel }) {
   const sc = STATUS_COLORS[channel.status];
@@ -42,6 +61,41 @@ function ChannelIndicator({ channel }: { channel: IModuleChannel }) {
   );
 }
 
+function ModulePanelHeader({
+  slot,
+  title,
+  subtitle,
+  onClose,
+}: {
+  slot: IModuleSlot;
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex items-start justify-between mb-5">
+      <div>
+        <div className="text-base font-black text-[#111827]">{title}</div>
+        <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider mt-0.5">{subtitle}</div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <Badge variant="outline" className="text-[9px] font-black rounded-full px-2 py-0.5 border-[#F3F4F6] text-[#111827]">
+            槽位 #{slot.slotNumber}
+          </Badge>
+          <Badge variant="outline" className="text-[9px] font-black rounded-full px-2 py-0.5 border-[#00B894]/30 text-[#00B894]">
+            {slot.version}
+          </Badge>
+          <Badge variant="outline" className="text-[9px] font-black rounded-full px-2 py-0.5 border-[#6366F1]/30 text-[#6366F1]">
+            ADC {slot.adcValue}
+          </Badge>
+        </div>
+      </div>
+      <button onClick={onClose} className="size-8 rounded-xl bg-[#F9FAFB] flex items-center justify-center text-[#9CA3AF] hover:text-[#111827] transition-colors">
+        <X className="size-4" />
+      </button>
+    </div>
+  );
+}
+
 // DI Module Control Panel
 function DIControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => void }) {
   return (
@@ -51,15 +105,7 @@ function DIControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => v
       exit={{ opacity: 0, y: 20 }}
       className="bg-white rounded-[32px] border border-[#F3F4F6] shadow-lg p-6"
     >
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <div className="text-base font-black text-[#111827]">{slot.model} 通道状态</div>
-          <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider mt-0.5">16路数字量输入</div>
-        </div>
-        <button onClick={onClose} className="size-8 rounded-xl bg-[#F9FAFB] flex items-center justify-center text-[#9CA3AF] hover:text-[#111827] transition-colors">
-          <X className="size-4" />
-        </button>
-      </div>
+      <ModulePanelHeader slot={slot} title={`${slot.model} 通道状态`} subtitle="16路数字量输入" onClose={onClose} />
       <div className="grid grid-cols-4 gap-2">
         {slot.channelList.map((ch) => {
           const sc = STATUS_COLORS[ch.status];
@@ -97,15 +143,7 @@ function DOControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => v
       exit={{ opacity: 0, y: 20 }}
       className="bg-white rounded-[32px] border border-[#F3F4F6] shadow-lg p-6"
     >
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <div className="text-base font-black text-[#111827]">{slot.model} 输出控制</div>
-          <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider mt-0.5">16路数字量输出 · 点击切换</div>
-        </div>
-        <button onClick={onClose} className="size-8 rounded-xl bg-[#F9FAFB] flex items-center justify-center text-[#9CA3AF] hover:text-[#111827] transition-colors">
-          <X className="size-4" />
-        </button>
-      </div>
+      <ModulePanelHeader slot={slot} title={`${slot.model} 输出控制`} subtitle="16路数字量输出 · 点击切换" onClose={onClose} />
       <div className="grid grid-cols-4 gap-2">
         {channels.map((ch) => {
           const isOn = ch.value === 'ON';
@@ -141,15 +179,7 @@ function AIControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => v
       exit={{ opacity: 0, y: 20 }}
       className="bg-white rounded-[32px] border border-[#F3F4F6] shadow-lg p-6"
     >
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <div className="text-base font-black text-[#111827]">{slot.model} 实时数值</div>
-          <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider mt-0.5">8路模拟量输入</div>
-        </div>
-        <button onClick={onClose} className="size-8 rounded-xl bg-[#F9FAFB] flex items-center justify-center text-[#9CA3AF] hover:text-[#111827] transition-colors">
-          <X className="size-4" />
-        </button>
-      </div>
+      <ModulePanelHeader slot={slot} title={`${slot.model} 实时数值`} subtitle="8路模拟量输入" onClose={onClose} />
       <div className="space-y-3">
         {slot.channelList.map((ch) => {
           const sc = STATUS_COLORS[ch.status];
@@ -193,15 +223,7 @@ function AOControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => v
       exit={{ opacity: 0, y: 20 }}
       className="bg-white rounded-[32px] border border-[#F3F4F6] shadow-lg p-6"
     >
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <div className="text-base font-black text-[#111827]">{slot.model} 输出调节</div>
-          <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider mt-0.5">8路模拟量输出 · 拖动滑块调节</div>
-        </div>
-        <button onClick={onClose} className="size-8 rounded-xl bg-[#F9FAFB] flex items-center justify-center text-[#9CA3AF] hover:text-[#111827] transition-colors">
-          <X className="size-4" />
-        </button>
-      </div>
+      <ModulePanelHeader slot={slot} title={`${slot.model} 输出调节`} subtitle="8路模拟量输出 · 拖动滑块调节" onClose={onClose} />
       <div className="space-y-4">
         {slot.channelList.map((ch) => {
           const isVoltage = ch.unit === 'V';
@@ -240,15 +262,7 @@ function RS485ControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () =
       exit={{ opacity: 0, y: 20 }}
       className="bg-white rounded-[32px] border border-[#F3F4F6] shadow-lg p-6"
     >
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <div className="text-base font-black text-[#111827]">{slot.model} 接口配置</div>
-          <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider mt-0.5">2路 RS485 隔离通信</div>
-        </div>
-        <button onClick={onClose} className="size-8 rounded-xl bg-[#F9FAFB] flex items-center justify-center text-[#9CA3AF] hover:text-[#111827] transition-colors">
-          <X className="size-4" />
-        </button>
-      </div>
+      <ModulePanelHeader slot={slot} title={`${slot.model} 接口配置`} subtitle={slot.spec} onClose={onClose} />
       <div className="space-y-3">
         {slot.channelList.map((ch) => (
           <div key={ch.index} className="p-4 rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB]">
@@ -539,6 +553,7 @@ function IOModuleCard({
         {/* Module name */}
         <div className="text-sm font-black text-[#111827] mb-1">{slot.name}</div>
         <div className="text-[10px] font-bold text-[#9CA3AF] mb-3">{slot.spec}</div>
+        {slot.status !== 'empty' && <ModuleMeta slot={slot} />}
 
         {/* Channel indicators */}
         {slot.status !== 'empty' && slot.channelList.length > 0 && (
@@ -579,7 +594,14 @@ export default function ModuleTopology() {
 
   const mainSlot = MOCK_MODULE_SLOTS.find((s) => s.slotNumber === 0);
   const leftSlots = MOCK_MODULE_SLOTS.filter((s) => s.position === 'left' && s.slotNumber > 0);
-  const rightSlots = MOCK_MODULE_SLOTS.filter((s) => s.position === 'right');
+  const rightSlots = MOCK_MODULE_SLOTS
+    .filter((s) => s.position === 'right')
+    .sort((a, b) => a.adcValue - b.adcValue)
+    .slice(0, MOCK_IO_MODULE_COUNT)
+    .map((slot, index) => ({
+      ...slot,
+      slotNumber: index + 1,
+    }));
 
   const renderControlPanel = () => {
     if (!selectedSlot) return null;
@@ -590,6 +612,8 @@ export default function ModuleTopology() {
     if (selectedSlot.type === 'AI 输入') return <AIControlPanel slot={selectedSlot} onClose={onClose} />;
     if (selectedSlot.type === 'AO 输出') return <AOControlPanel slot={selectedSlot} onClose={onClose} />;
     if (selectedSlot.type === 'RS485 通信') return <RS485ControlPanel slot={selectedSlot} onClose={onClose} />;
+    if (selectedSlot.type === 'RS232 通信') return <RS485ControlPanel slot={selectedSlot} onClose={onClose} />;
+    if (selectedSlot.type === 'NMEA 通信') return <RS485ControlPanel slot={selectedSlot} onClose={onClose} />;
     return null;
   };
 
@@ -611,7 +635,9 @@ export default function ModuleTopology() {
               </div>
               <div>
                 <div className="text-sm font-black text-[#111827]">IO 扩展模块组</div>
-                <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">刀片式模块化扩展</div>
+                <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">
+                  后端反馈 {MOCK_IO_MODULE_COUNT} 个模块 · 按 ADC 升序排列
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">

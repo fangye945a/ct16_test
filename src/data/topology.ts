@@ -1,4 +1,4 @@
-// EXPORTS: INetworkDevice, INetworkLink, IDeviceNode, IDeviceLink, IModuleSlot, IModuleChannel, MOCK_NETWORK_DEVICES, MOCK_NETWORK_LINKS, MOCK_DEVICE_NODES, MOCK_DEVICE_LINKS, MOCK_MODULE_SLOTS
+// EXPORTS: INetworkDevice, INetworkLink, IDeviceNode, IDeviceLink, IModuleSlot, IModuleChannel, MOCK_NETWORK_DEVICES, MOCK_NETWORK_LINKS, MOCK_DEVICE_NODES, MOCK_DEVICE_LINKS, MOCK_MODULE_SLOTS, MOCK_IO_MODULE_COUNT
 
 // ===== 一、组网拓扑（软总线超级终端）=====
 
@@ -199,6 +199,8 @@ export interface IModuleSlot {
   slotNumber: number
   model: string
   name: string
+  version: 'V3.2.1' | 'V3.2.3'
+  adcValue: number
   type: string
   spec: string
   status: 'normal' | 'warning' | 'fault' | 'empty'
@@ -207,6 +209,8 @@ export interface IModuleSlot {
   position: 'left' | 'right'
 }
 
+export const MOCK_IO_MODULE_COUNT = 7;
+
 export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
   // 左侧：主控单元
   {
@@ -214,6 +218,8 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
     slotNumber: 0,
     model: 'CT16-MAIN',
     name: '主控模块',
+    version: 'V3.2.1',
+    adcValue: 0,
     type: '主控单元',
     spec: 'HPM6754 双核 RISC-V 800MHz',
     status: 'normal',
@@ -233,6 +239,8 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
     slotNumber: 1,
     model: 'CT16-4G',
     name: '4G/WiFi 模块',
+    version: 'V3.2.1',
+    adcValue: 0,
     type: '无线通信',
     spec: '4G LTE + WiFi 2.4G/5G',
     status: 'normal',
@@ -249,6 +257,8 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
     slotNumber: 2,
     model: 'CT16-BLE',
     name: '蓝牙/星闪 模块',
+    version: 'V3.2.3',
+    adcValue: 0,
     type: '无线通信',
     spec: 'BLE 5.2 + 星闪 1.0',
     status: 'normal',
@@ -262,9 +272,11 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
   // 右侧：IO扩展模块
   {
     id: 'mod-di16',
-    slotNumber: 3,
-    model: 'CTS-DI16',
-    name: '数字量输入模块',
+    slotNumber: 1,
+    model: 'DI16',
+    name: 'DI16',
+    version: 'V3.2.1',
+    adcValue: 18,
     type: 'DI 输入',
     spec: '16路 NPN/PNP 24VDC',
     status: 'normal',
@@ -280,9 +292,11 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
   },
   {
     id: 'mod-do16',
-    slotNumber: 4,
-    model: 'CTS-DO16N',
-    name: '数字量输出模块',
+    slotNumber: 2,
+    model: 'DO16',
+    name: 'DO16',
+    version: 'V3.2.3',
+    adcValue: 42,
     type: 'DO 输出',
     spec: '16路 NPN 晶体管 24VDC',
     status: 'normal',
@@ -298,9 +312,11 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
   },
   {
     id: 'mod-ai8',
-    slotNumber: 5,
-    model: 'CTS-AI8',
-    name: '模拟量输入模块',
+    slotNumber: 3,
+    model: 'AI8',
+    name: 'AI8',
+    version: 'V3.2.1',
+    adcValue: 73,
     type: 'AI 输入',
     spec: '8路 4-20mA / 0-10V',
     status: 'normal',
@@ -319,9 +335,11 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
   },
   {
     id: 'mod-ao8',
-    slotNumber: 6,
-    model: 'CTS-AO8',
-    name: '模拟量输出模块',
+    slotNumber: 4,
+    model: 'AO8',
+    name: 'AO8',
+    version: 'V3.2.3',
+    adcValue: 108,
     type: 'AO 输出',
     spec: '8路 4-20mA / 0-10V',
     status: 'normal',
@@ -336,10 +354,29 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
     position: 'right',
   },
   {
+    id: 'mod-rs232',
+    slotNumber: 5,
+    model: 'RS232-2CH',
+    name: 'RS232-2CH',
+    version: 'V3.2.1',
+    adcValue: 139,
+    type: 'RS232 通信',
+    spec: '2路 RS232 隔离',
+    status: 'normal',
+    channels: 2,
+    channelList: [
+      { index: 1, label: 'COM1', status: 'normal', value: '115200bps', unit: '' },
+      { index: 2, label: 'COM2', status: 'normal', value: '9600bps', unit: '' },
+    ],
+    position: 'right',
+  },
+  {
     id: 'mod-rs485',
-    slotNumber: 7,
-    model: 'CTS-RS485',
-    name: '串口扩展模块',
+    slotNumber: 6,
+    model: 'RS485-2CH',
+    name: 'RS485-2CH',
+    version: 'V3.2.3',
+    adcValue: 171,
     type: 'RS485 通信',
     spec: '2路 RS485 隔离',
     status: 'normal',
@@ -351,15 +388,20 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
     position: 'right',
   },
   {
-    id: 'mod-empty',
-    slotNumber: 8,
-    model: '--',
-    name: '空槽位',
-    type: '可扩展',
-    spec: '支持 DI/DO/AI/AO/RS485',
-    status: 'empty',
-    channels: 0,
-    channelList: [],
+    id: 'mod-nmea',
+    slotNumber: 7,
+    model: 'NMEA',
+    name: 'NMEA',
+    version: 'V3.2.1',
+    adcValue: 214,
+    type: 'NMEA 通信',
+    spec: 'NMEA 0183/2000 导航数据接口',
+    status: 'normal',
+    channels: 2,
+    channelList: [
+      { index: 1, label: 'NMEA-IN', status: 'normal', value: '4800bps', unit: '' },
+      { index: 2, label: 'NMEA-OUT', status: 'normal', value: '4800bps', unit: '' },
+    ],
     position: 'right',
   },
 ];
