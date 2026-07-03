@@ -35,7 +35,7 @@ import {
 import type { INetworkDevice, IDeviceNode } from '@/data/topology';
 
 const DEVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  CT16: Cpu, CT16: Cpu, CT32: Server, CT33: Server, CT21B: Monitor, HarmonyPad: Tablet,
+  CT16: Cpu, CT32: Server, CT33: Server, CT21B: Monitor, HarmonyPad: Tablet,
 };
 
 const SUB_DEVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {

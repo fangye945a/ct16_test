@@ -17,6 +17,7 @@ import {
   Server,
   Hash,
   Package,
+  MonitorCog,
 } from 'lucide-react';
 import { MOCK_SYSTEM_INFO, MOCK_SYSTEM_METRICS, MOCK_ALERT_EVENTS, type ISystemMetrics } from '@/data/dashboard';
 import { CHART_COLORS } from '@/lib/chart-colors';
@@ -188,11 +189,12 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* Device Info */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         {[
           { icon: Server, label: '设备名称', value: MOCK_SYSTEM_INFO.deviceName },
           { icon: Package, label: '型号', value: MOCK_SYSTEM_INFO.model },
           { icon: Hash, label: '序列号', value: MOCK_SYSTEM_INFO.serialNumber },
+          { icon: MonitorCog, label: '系统版本', value: MOCK_SYSTEM_INFO.systemVersion },
           { icon: Clock, label: '固件版本', value: MOCK_SYSTEM_INFO.firmwareVersion },
         ].map((item, i) => (
           <motion.div

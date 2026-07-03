@@ -8,6 +8,7 @@ export interface ISystemInfo {
   deviceName: string
   model: string
   serialNumber: string
+  systemVersion: string
   firmwareVersion: string
   startedAt: string // ISO 日期字符串，用于计算运行时长
 }
@@ -47,6 +48,7 @@ export const MOCK_SYSTEM_INFO: ISystemInfo = {
   deviceName: '在鸿控制器',
   model: 'CT16',
   serialNumber: 'SN-2024X8A1',
+  systemVersion: 'OpenHarmony 6.1 Release',
   firmwareVersion: 'v2.1.4',
   startedAt: new Date(Date.now() - 15 * 24 * 3600 * 1000).toISOString(), // 15天前启动
 }
