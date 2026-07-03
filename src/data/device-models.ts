@@ -1,4 +1,4 @@
-// EXPORTS: IDeviceModel, IDataPoint, MOCK_DEVICE_MODELS
+// EXPORTS: IDeviceModel, IDataPoint, MOCK_DEVICE_MODELS, MOCK_CLOUD_DEVICE_MODELS
 
 export interface IDataPoint {
   id: string
@@ -159,5 +159,55 @@ export const MOCK_DEVICE_MODELS: IDeviceModel[] = [
     createdAt: '2025-07-01',
     status: 'unsynced',
     tags: ['门禁', '控制器', '安防'],
+  },
+];
+
+export const MOCK_CLOUD_DEVICE_MODELS: IDeviceModel[] = [
+  {
+    id: 'cloud-dm-1',
+    name: '工业网关 CT16 标准模型',
+    type: '控制器',
+    version: 'v2.1',
+    description: '适用于 CT16 控制器的标准云端设备模型，包含基础状态、网络状态和 IO 控制数据点。',
+    dataPoints: [
+      { id: 'cloud-dp-1-1', name: '设备在线状态', identifier: 'online_status', dataType: 'bool', access: 'readonly', unit: '', range: '0/1', description: '设备在线状态' },
+      { id: 'cloud-dp-1-2', name: 'CPU使用率', identifier: 'cpu_usage', dataType: 'float', access: 'readonly', unit: '%', range: '0 ~ 100', description: '控制器 CPU 使用率' },
+      { id: 'cloud-dp-1-3', name: 'DO输出控制', identifier: 'do_control', dataType: 'int', access: 'readwrite', unit: '', range: '0 ~ 65535', description: '数字量输出位控制' },
+    ],
+    dataPointCount: 3,
+    createdAt: '2026-06-12',
+    status: 'synced',
+    tags: ['CT16', '控制器', '云端'],
+  },
+  {
+    id: 'cloud-dm-2',
+    name: 'Modbus RTU 通用采集模型',
+    type: '仪表',
+    version: 'v1.5',
+    description: '云平台通用 Modbus RTU 采集模型，适用于电表、流量计、压力表等常见工业仪表。',
+    dataPoints: [
+      { id: 'cloud-dp-2-1', name: '寄存器值1', identifier: 'register_1', dataType: 'float', access: 'readonly', unit: '', range: '', description: '通用寄存器采集值' },
+      { id: 'cloud-dp-2-2', name: '采集周期', identifier: 'poll_interval', dataType: 'int', access: 'readwrite', unit: 'ms', range: '100 ~ 60000', description: 'Modbus 轮询周期' },
+    ],
+    dataPointCount: 2,
+    createdAt: '2026-05-28',
+    status: 'synced',
+    tags: ['Modbus', '仪表', '采集'],
+  },
+  {
+    id: 'cloud-dm-3',
+    name: '边缘 AI 状态监测模型',
+    type: '传感器',
+    version: 'v1.0',
+    description: '用于端侧智能体状态监测的云端模型，包含推理耗时、置信度、告警状态等数据点。',
+    dataPoints: [
+      { id: 'cloud-dp-3-1', name: '推理耗时', identifier: 'infer_latency', dataType: 'float', access: 'readonly', unit: 'ms', range: '0 ~ 10000', description: '端侧模型推理耗时' },
+      { id: 'cloud-dp-3-2', name: '置信度', identifier: 'confidence', dataType: 'float', access: 'readonly', unit: '%', range: '0 ~ 100', description: '最近一次识别结果置信度' },
+      { id: 'cloud-dp-3-3', name: '告警状态', identifier: 'alarm_status', dataType: 'bool', access: 'readonly', unit: '', range: '0/1', description: 'AI 识别告警状态' },
+    ],
+    dataPointCount: 3,
+    createdAt: '2026-06-20',
+    status: 'synced',
+    tags: ['AI', '智能体', '云端'],
   },
 ];

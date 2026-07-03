@@ -7,7 +7,6 @@ export interface IOtaUpgradeRecord {
   operator: string
   upgradeTime: string
   description: string
-  partitionInfo: string
 }
 
 export const MOCK_OTA_RECORDS: IOtaUpgradeRecord[] = [
@@ -19,7 +18,6 @@ export const MOCK_OTA_RECORDS: IOtaUpgradeRecord[] = [
     operator: 'Admin',
     upgradeTime: '2025-01-20 14:30:00',
     description: '修复Modbus协议解析异常',
-    partitionInfo: '主分区A → 备用分区B'
   },
   {
     id: '2',
@@ -29,7 +27,6 @@ export const MOCK_OTA_RECORDS: IOtaUpgradeRecord[] = [
     operator: 'Zhang Wei',
     upgradeTime: '2024-12-28 09:15:00',
     description: '新增OPC UA订阅功能',
-    partitionInfo: '主分区A → 备用分区B'
   },
   {
     id: '3',
@@ -39,6 +36,5 @@ export const MOCK_OTA_RECORDS: IOtaUpgradeRecord[] = [
     operator: 'Admin',
     upgradeTime: '2024-11-15 16:45:00',
     description: '安全补丁更新',
-    partitionInfo: '主分区A → 备用分区B'
   }
 ]

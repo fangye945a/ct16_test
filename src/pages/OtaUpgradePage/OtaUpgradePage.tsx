@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -28,10 +28,8 @@ import {
   RotateCcw,
   AlertTriangle,
   Clock,
-  HardDrive,
   Cpu,
   FileUp,
-  Shield,
   Zap,
   RefreshCw,
 } from 'lucide-react';
@@ -46,11 +44,10 @@ const STATUS_CONFIG: Record<string, { icon: React.ComponentType<{ className?: st
 };
 
 const UPGRADE_STAGES = [
-  '正在备份当前分区...',
+  '正在备份当前固件...',
   '正在校验升级包完整性...',
-  '正在写入新固件到备用分区...',
+  '正在写入新固件...',
   '正在验证固件签名...',
-  '切换启动分区...',
   '升级完成',
 ];
 
@@ -140,8 +137,8 @@ export default function OtaUpgradePage() {
   return (
     <div className="space-y-6">
       {/* Current Version */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="border-border/40 bg-card/60 lg:col-span-2">
+      <div className="grid grid-cols-1 gap-4">
+        <Card className="border-border/40 bg-card/60">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Cpu className="size-4 text-primary" />
@@ -149,12 +146,10 @@ export default function OtaUpgradePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
                 { icon: Package, label: '固件版本', value: 'v3.2.1' },
                 { icon: Clock, label: '构建日期', value: '2025-01-15' },
-                { icon: HardDrive, label: '主分区', value: 'A (v3.2.1)' },
-                { icon: HardDrive, label: '备用分区', value: 'B (v3.1.5)' },
               ].map((item) => (
                 <div key={item.label} className="p-3 rounded-lg bg-muted/40 border border-border/30">
                   <div className="flex items-center gap-1.5 mb-1">
@@ -164,30 +159,6 @@ export default function OtaUpgradePage() {
                   <div className="text-sm font-semibold">{item.value}</div>
                 </div>
               ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Dual Partition Info */}
-        <Card className="border-border/40 bg-card/60">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="size-4 text-primary" />
-              双分区升级
-            </CardTitle>
-            <CardDescription className="text-xs">
-              系统采用 A/B 双分区架构，升级时新固件写入备用分区，验证通过后切换启动分区。如遇问题可一键回滚至上一版本。
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center gap-3 text-xs">
-              <div className="px-3 py-2 rounded-lg bg-success/10 border border-success/30 text-success font-medium">
-                主分区 A<br />v3.2.1 (运行中)
-              </div>
-              <Zap className="size-4 text-primary" />
-              <div className="px-3 py-2 rounded-lg bg-muted/40 border border-border/30 text-muted-foreground font-medium">
-                备用分区 B<br />v3.1.5 (待机)
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -423,7 +394,6 @@ export default function OtaUpgradePage() {
                   <TableHead className="whitespace-nowrap">操作人</TableHead>
                   <TableHead className="whitespace-nowrap">升级时间</TableHead>
                   <TableHead className="whitespace-nowrap">说明</TableHead>
-                  <TableHead className="whitespace-nowrap">分区信息</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -454,9 +424,6 @@ export default function OtaUpgradePage() {
                         <span className="text-sm truncate block max-w-[200px]">
                           {record.description}
                         </span>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                        {record.partitionInfo}
                       </TableCell>
                     </TableRow>
                   );
