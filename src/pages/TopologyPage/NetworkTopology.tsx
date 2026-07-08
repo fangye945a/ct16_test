@@ -224,8 +224,25 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
 
   // 所有设备按顺序排列（master 在中间偏左位置）
   const orderedDevices = [master, ...slaves];
+  const deviceXPct = orderedDevices.map((_, i) => 10 + (i / (orderedDevices.length - 1)) * 80);
   const onlineCount = orderedDevices.filter((d) => d.status === 'online').length;
   const totalCount = orderedDevices.length;
+  const busFlowSegments = orderedDevices.slice(0, -1).flatMap((device, index) => {
+    const nextDevice = orderedDevices[index + 1];
+    if (device.status !== 'online' || nextDevice.status !== 'online') {
+      return [];
+    }
+
+    const start = deviceXPct[index];
+    const end = deviceXPct[index + 1];
+    return Array.from({ length: 2 }, (_, flowIndex) => ({
+      key: `${device.id}-${nextDevice.id}-${flowIndex}`,
+      start,
+      end,
+      duration: 2.8 + ((index + flowIndex) % 3) * 0.45,
+      delay: flowIndex * 0.9 + index * 0.35,
+    }));
+  });
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -286,7 +303,17 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
       </div>
 
       {/* ── 总线信息面板 ── */}
-      <div className="absolute top-4 left-4 z-20 flex items-center gap-3 px-4 py-2.5 bg-white/90 backdrop-blur-sm rounded-2xl border border-[#F3F4F6] shadow-sm">
+      <div className="absolute top-4 left-4 z-20 flex items-center gap-4 px-4 py-2.5 bg-white/90 backdrop-blur-sm rounded-2xl border border-[#F3F4F6] shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="flex size-7 items-center justify-center rounded-xl bg-[#00B894]/10">
+            <Wifi className="size-3.5 text-[#00B894]" />
+          </div>
+          <div>
+            <div className="text-[10px] font-black text-[#111827]">在鸿轻量软总线</div>
+            <div className="text-[9px] font-bold text-[#9CA3AF]">轻量协同组网通道</div>
+          </div>
+        </div>
+        <span className="h-7 w-px bg-[#E5E7EB]" />
         <div className="flex items-center gap-1.5">
           <Users className="size-3 text-[#9CA3AF]" />
           <span className="text-[10px] font-black text-[#9CA3AF]">
@@ -328,9 +355,9 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
               x2="95%"
               y2="50%"
               stroke="#00B894"
-              strokeWidth="3"
+              strokeWidth="6"
               strokeLinecap="round"
-              opacity="0.4"
+              opacity="0.55"
             />
             {/* 总线光晕 */}
             <line
@@ -339,31 +366,56 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
               x2="95%"
               y2="50%"
               stroke="#00B894"
-              strokeWidth="8"
+              strokeWidth="14"
               strokeLinecap="round"
-              opacity="0.08"
+              opacity="0.12"
             />
-
-            {/* 总线标签 */}
-            <rect x="calc(50% - 88px)" y="calc(50% - 14px)" width="176" height="28" rx="14" fill="white" stroke="#00B894" strokeWidth="1" opacity="0.92" />
-            <text
-              x="50%"
-              y="calc(50% + 5px)"
-              textAnchor="middle"
-              fill="#00B894"
-              fontSize="10"
-              fontWeight="800"
-              fontFamily="'Plus Jakarta Sans', sans-serif"
-              letterSpacing="0.1em"
-            >
-              在鸿轻量软总线
-            </text>
+            {busFlowSegments.map((segment) => (
+              <motion.g
+                key={segment.key}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 1, 1, 0] }}
+                transition={{
+                  duration: segment.duration,
+                  delay: segment.delay,
+                  repeat: Infinity,
+                  repeatDelay: 0.4,
+                  ease: 'linear',
+                }}
+              >
+                <motion.circle
+                  cy="50%"
+                  r="3.5"
+                  fill="#C8FFF0"
+                  animate={{ cx: [`${segment.start}%`, `${segment.end}%`] }}
+                  transition={{
+                    duration: segment.duration,
+                    delay: segment.delay,
+                    repeat: Infinity,
+                    repeatDelay: 0.4,
+                    ease: 'linear',
+                  }}
+                />
+                <motion.circle
+                  cy="50%"
+                  r="8"
+                  fill="#00B894"
+                  opacity={0.14}
+                  animate={{ cx: [`${segment.start}%`, `${segment.end}%`] }}
+                  transition={{
+                    duration: segment.duration,
+                    delay: segment.delay,
+                    repeat: Infinity,
+                    repeatDelay: 0.4,
+                    ease: 'linear',
+                  }}
+                />
+              </motion.g>
+            ))}
 
             {/* 设备连接线 */}
             {orderedDevices.map((device, i) => {
-              const total = orderedDevices.length;
-              // 设备在水平方向均匀分布
-              const xPct = 10 + (i / (total - 1)) * 80;
+              const xPct = deviceXPct[i];
               // 交替上下排列
               const isAbove = i % 2 === 0;
               const yBus = 50; // 总线 Y 位置（百分比）

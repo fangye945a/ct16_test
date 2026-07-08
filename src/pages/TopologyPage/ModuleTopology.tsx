@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +10,6 @@ import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -26,7 +24,6 @@ import {
   X,
   Settings2,
   Cable,
-  Router,
   BadgeCheck,
   Shuffle,
   Download,
@@ -677,6 +674,11 @@ function NMEAControlPanel({ slot }: { slot: IModuleSlot }) {
 
 type WirelessOption = { key: string; label: string; icon: React.ComponentType<{ className?: string }>; color: string };
 
+const WIRELESS_MAC_ADDRESS: Record<'ble' | 'slb', string> = {
+  ble: '8C:5A:F8:16:2B:41',
+  slb: '70:4D:7B:88:31:AC',
+};
+
 const SLOT1_OPTIONS: WirelessOption[] = [
   { key: '4g', label: '4G 模块', icon: Radio, color: '#6366F1' },
   { key: 'wifi', label: 'WiFi 模块', icon: Wifi, color: '#00B894' },
@@ -693,27 +695,31 @@ function WirelessSlotCard({
   slotLabel,
   options,
   selectedKey,
-  onOpen,
+  networkConfig,
 }: {
   slotLabel: string;
   options: WirelessOption[];
   selectedKey: string;
-  onOpen: () => void;
+  networkConfig: INetworkInterfaceConfig | null;
 }) {
   const selected = options.find((o) => o.key === selectedKey) || options[0];
   const SelectedIcon = selected.icon;
   const isNone = selected.key === 'none';
+  const detailLabel = selected.key === '4g' || selected.key === 'wifi' ? 'IP 地址' : 'MAC 地址';
+  const detailValue = selected.key === '4g' || selected.key === 'wifi'
+    ? networkConfig?.ipAddress || '--'
+    : selected.key === 'ble' || selected.key === 'slb'
+      ? WIRELESS_MAC_ADDRESS[selected.key]
+      : '--';
 
   return (
-    <div>
-      <button
-        onClick={onOpen}
-        className={`w-full p-3 rounded-2xl border transition-all duration-200 text-left ${
-          isNone
-            ? 'border-dashed border-[#E5E7EB] bg-[#F9FAFB]/50'
-            : 'border-[#F3F4F6] bg-[#F9FAFB] hover:border-[#00B894]/30'
-        }`}
-      >
+    <div
+      className={`w-full rounded-2xl border p-3 text-left ${
+        isNone
+          ? 'border-dashed border-[#E5E7EB] bg-[#F9FAFB]/50'
+          : 'border-[#F3F4F6] bg-[#F9FAFB]'
+      }`}
+    >
         <div className="mb-2 flex items-center justify-between">
           <Badge variant="outline" className="rounded-full border-[#E5E7EB] bg-white px-2 py-0 text-[8px] font-black text-[#6B7280]">
             {slotLabel}
@@ -732,139 +738,27 @@ function WirelessSlotCard({
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-black text-[#111827]">{selected.label}</div>
-            <div className="mt-0.5 text-[9px] font-bold text-[#9CA3AF]">当前安装模块</div>
           </div>
         </div>
         {!isNone && (
-          <div className="flex items-center gap-2 text-[9px]">
-            <Badge
-              variant="outline"
-              className="rounded-full px-2 py-0"
-              style={{ color: selected.color, borderColor: `${selected.color}30`, backgroundColor: `${selected.color}08` }}
-            >
-              已安装 · 正常运行
-            </Badge>
-            <span className="ml-auto text-[9px] font-bold text-[#9CA3AF]">点击配置</span>
+          <div className="rounded-xl border border-white/80 bg-white px-3 py-2">
+            <div className="text-[9px] font-bold text-[#9CA3AF]">{detailLabel}</div>
+            <div className="mt-1 flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className="rounded-full px-2 py-0"
+                style={{ color: selected.color, borderColor: `${selected.color}30`, backgroundColor: `${selected.color}08` }}
+              >
+                运行中
+              </Badge>
+              <span className="min-w-0 truncate text-[10px] font-black text-[#111827]">{detailValue}</span>
+            </div>
           </div>
         )}
         {isNone && (
-          <div className="text-[9px] text-[#9CA3AF] font-medium">未安装模块，点击查看槽位信息</div>
+          <div className="text-[9px] font-medium text-[#9CA3AF]">未安装扩展模块</div>
         )}
-      </button>
     </div>
-  );
-}
-
-function WirelessConfigDialog({
-  open,
-  onOpenChange,
-  slotLabel,
-  moduleKey,
-  networkConfig,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  slotLabel: string;
-  moduleKey: string;
-  networkConfig: INetworkInterfaceConfig | null;
-}) {
-  const moduleName = moduleKey === '4g' ? '4G 扩展模块' : moduleKey === 'wifi' ? 'WiFi 扩展模块' : moduleKey === 'ble' ? '蓝牙扩展模块' : moduleKey === 'slb' ? '星闪扩展模块' : '未安装';
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl border-[#F3F4F6] bg-white text-[#111827]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <Router className="size-5 text-[#00B894]" />
-            {slotLabel} · {moduleName}
-          </DialogTitle>
-          <DialogDescription className="text-[#9CA3AF]">
-            模块类型由系统设置中的无线扩展槽配置决定，此处展示运行信息和常用操作参数。
-          </DialogDescription>
-        </DialogHeader>
-
-        {moduleKey === 'none' ? (
-          <div className="rounded-2xl border border-dashed border-[#E5E7EB] bg-[#F9FAFB] p-6 text-center">
-            <div className="text-sm font-black text-[#111827]">当前槽位未安装扩展模块</div>
-            <div className="mt-1 text-xs font-bold text-[#9CA3AF]">请在系统设置中选择具体模块类型后再配置通信参数。</div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-[10px]">
-              <div className="rounded-2xl bg-[#F9FAFB] p-3">
-                <div className="font-bold text-[#9CA3AF]">模块状态</div>
-                <div className="mt-1 font-black text-[#00B894]">已安装 · 正常运行</div>
-              </div>
-              <div className="rounded-2xl bg-[#F9FAFB] p-3">
-                <div className="font-bold text-[#9CA3AF]">信号质量</div>
-                <div className="mt-1 font-black text-[#111827]">{moduleKey === '4g' ? '-73 dBm' : moduleKey === 'wifi' ? '-48 dBm' : '近场稳定'}</div>
-              </div>
-            </div>
-
-            {moduleKey === 'wifi' && networkConfig && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-[#9CA3AF]">SSID</Label>
-                  <Input value={networkConfig.ssid || ''} readOnly className="h-9 bg-[#F9FAFB]" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-[#9CA3AF]">加密方式</Label>
-                  <Input value={networkConfig.encryption || 'WPA2-PSK'} readOnly className="h-9 bg-[#F9FAFB]" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-[#9CA3AF]">地址模式</Label>
-                  <div className="flex h-9 items-center rounded-md border border-[#E5E7EB] bg-[#F9FAFB] px-3"><AddressModeBadge mode={networkConfig.addressMode} /></div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-[#9CA3AF]">IP 地址</Label>
-                  <Input value={networkConfig.ipAddress} readOnly className="h-9 bg-[#F9FAFB]" />
-                </div>
-                <Button size="sm" className="sm:col-span-2 w-fit bg-[#00B894] text-white hover:bg-[#00A77F]">连接 WiFi</Button>
-              </div>
-            )}
-
-            {moduleKey === '4g' && networkConfig && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-[#9CA3AF]">运营商</Label>
-                  <Input value="中国移动" readOnly className="h-9 bg-[#F9FAFB]" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-[#9CA3AF]">APN</Label>
-                  <Input value={networkConfig.apn || ''} readOnly className="h-9 bg-[#F9FAFB]" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-[#9CA3AF]">拨号状态</Label>
-                  <Input value="已拨号" readOnly className="h-9 bg-[#F9FAFB]" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-[#9CA3AF]">IP 地址</Label>
-                  <Input value={networkConfig.ipAddress} readOnly className="h-9 bg-[#F9FAFB]" />
-                </div>
-                <Button size="sm" variant="outline" className="sm:col-span-2 w-fit">重新拨号</Button>
-              </div>
-            )}
-
-            {(moduleKey === 'ble' || moduleKey === 'slb') && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-[#9CA3AF]">广播名称</Label>
-                  <Input value={moduleKey === 'ble' ? 'CT16-BLE-Gateway' : 'CT16-SLB-Gateway'} readOnly className="h-9 bg-[#F9FAFB]" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-[#9CA3AF]">配对状态</Label>
-                  <Input value="允许配对" readOnly className="h-9 bg-[#F9FAFB]" />
-                </div>
-                <div className="flex items-center gap-3 rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] p-3 sm:col-span-2">
-                  <Switch checked />
-                  <span className="text-xs font-bold text-[#111827]">启用近场通信</span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -872,7 +766,6 @@ function WirelessConfigDialog({
 function MainControlUnit() {
   const [wirelessSlots, setWirelessSlots] = useState<IWirelessSlotSettings>(() => LoadWirelessSlots());
   const [networkInterfaces, setNetworkInterfaces] = useState<INetworkInterfaceSettings>(() => LoadNetworkInterfaces());
-  const [activeWirelessSlot, setActiveWirelessSlot] = useState<'slot1' | 'slot2' | null>(null);
 
   useEffect(() => {
     const reloadConfig = () => {
@@ -896,10 +789,9 @@ function MainControlUnit() {
         { label: 'ETH1', config: networkInterfaces.interfaces.eth1 },
         { label: 'ETH2', config: networkInterfaces.interfaces.eth2 },
       ];
-  const activeModuleKey = activeWirelessSlot ? wirelessSlots[activeWirelessSlot] : 'none';
-  const activeNetworkConfig = activeModuleKey === 'wifi'
+  const slot1NetworkConfig = wirelessSlots.slot1 === 'wifi'
     ? networkInterfaces.interfaces.wifi
-    : activeModuleKey === '4g'
+    : wirelessSlots.slot1 === '4g'
       ? networkInterfaces.interfaces['4g']
       : null;
 
@@ -988,33 +880,20 @@ function MainControlUnit() {
         </div>
       </div>
 
-      <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">无线扩展槽</div>
-          <div className="text-[9px] font-bold text-[#9CA3AF]">2 个槽位</div>
-        </div>
-        <div className="space-y-3">
+      <div className="mt-4 grid flex-1 grid-rows-2 gap-3">
           <WirelessSlotCard
             slotLabel="4G/WiFi 模块槽位"
             options={SLOT1_OPTIONS}
             selectedKey={wirelessSlots.slot1}
-            onOpen={() => setActiveWirelessSlot('slot1')}
+            networkConfig={slot1NetworkConfig}
           />
           <WirelessSlotCard
             slotLabel="蓝牙/星闪 模块槽位"
             options={SLOT2_OPTIONS}
             selectedKey={wirelessSlots.slot2}
-            onOpen={() => setActiveWirelessSlot('slot2')}
+            networkConfig={null}
           />
-        </div>
       </div>
-      <WirelessConfigDialog
-        open={activeWirelessSlot !== null}
-        onOpenChange={(open) => !open && setActiveWirelessSlot(null)}
-        slotLabel={activeWirelessSlot === 'slot2' ? '蓝牙/星闪 模块槽位' : '4G/WiFi 模块槽位'}
-        moduleKey={activeModuleKey}
-        networkConfig={activeNetworkConfig}
-      />
     </Card>
   );
 }
