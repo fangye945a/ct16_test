@@ -35,7 +35,9 @@ import {
   XCircle,
   AlertCircle,
   Wifi,
-  HardDrive,
+  Radio,
+  Network,
+  Link2,
   Palette,
   Key,
   Eye,
@@ -47,13 +49,18 @@ import {
   MOCK_TIME_SETTINGS,
   MOCK_SECURITY_SETTINGS,
   MOCK_SERVICES,
+  MOCK_WIRELESS_SLOT_SETTINGS,
+  MOCK_NETWORK_INTERFACE_SETTINGS,
   type INetworkSettings,
   type ITimeSettings,
   type ISecuritySettings,
   type IServiceItem,
+  type IWirelessSlotSettings,
+  type INetworkInterfaceConfig,
+  type INetworkInterfaceSettings,
+  type NetworkInterfaceId,
 } from '@/data/settings';
 import { toast } from 'sonner';
-import { logger } from '@lark-apaas/client-toolkit-lite';
 
 const SERVICE_STATUS_CONFIG: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string; label: string }> = {
   running: { icon: CheckCircle, color: 'text-success', label: '运行中' },
@@ -67,6 +74,43 @@ const PRESET_LOGOS = [
   { key: 'shield', label: '盾牌' },
   { key: 'hexagon', label: '六边形' },
 ];
+
+const WIRELESS_STORAGE_KEY = 'zaihong:wirelessSlots';
+const NETWORK_STORAGE_KEY = 'zaihong:networkInterfaces';
+
+function LoadWirelessSlots(): IWirelessSlotSettings {
+  try {
+    const stored = localStorage.getItem(WIRELESS_STORAGE_KEY);
+    return stored ? { ...MOCK_WIRELESS_SLOT_SETTINGS, ...JSON.parse(stored) } : { ...MOCK_WIRELESS_SLOT_SETTINGS };
+  } catch {
+    return { ...MOCK_WIRELESS_SLOT_SETTINGS };
+  }
+}
+
+function LoadNetworkInterfaces(): INetworkInterfaceSettings {
+  try {
+    const stored = localStorage.getItem(NETWORK_STORAGE_KEY);
+    const parsed = stored ? JSON.parse(stored) : null;
+    return parsed
+      ? {
+          ...MOCK_NETWORK_INTERFACE_SETTINGS,
+          ...parsed,
+          interfaces: {
+            ...MOCK_NETWORK_INTERFACE_SETTINGS.interfaces,
+            ...parsed.interfaces,
+          },
+        }
+      : {
+          ...MOCK_NETWORK_INTERFACE_SETTINGS,
+          interfaces: { ...MOCK_NETWORK_INTERFACE_SETTINGS.interfaces },
+        };
+  } catch {
+    return {
+      ...MOCK_NETWORK_INTERFACE_SETTINGS,
+      interfaces: { ...MOCK_NETWORK_INTERFACE_SETTINGS.interfaces },
+    };
+  }
+}
 
 function LogoIcon({ type, className }: { type: string; className?: string }) {
   if (type === 'chip') {
@@ -100,8 +144,130 @@ function LogoIcon({ type, className }: { type: string; className?: string }) {
   );
 }
 
+function ToggleIconButton({ checked, onClick }: { checked: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="shrink-0">
+      {checked ? (
+        <ToggleRight className="size-5 text-success" />
+      ) : (
+        <ToggleLeft className="size-5 text-muted-foreground" />
+      )}
+    </button>
+  );
+}
+
+function NetworkInterfaceCard({
+  config,
+  disabled,
+  disabledReason,
+  onChange,
+}: {
+  config: INetworkInterfaceConfig;
+  disabled?: boolean;
+  disabledReason?: string;
+  onChange: (patch: Partial<INetworkInterfaceConfig>) => void;
+}) {
+  const isStatic = config.addressMode === 'static';
+
+  return (
+    <div className={`rounded-xl border border-border/40 bg-card/70 p-4 ${disabled ? 'opacity-55' : ''}`}>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Network className="size-4 text-primary" />
+            {config.name}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {disabled ? disabledReason : `${isStatic ? '静态IP' : 'DHCP'} · metric ${config.metric}`}
+          </div>
+        </div>
+        <ToggleIconButton checked={config.enabled && !disabled} onClick={() => !disabled && onChange({ enabled: !config.enabled })} />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs">地址方式</Label>
+          <Select value={config.addressMode} onValueChange={(value) => onChange({ addressMode: value as INetworkInterfaceConfig['addressMode'] })} disabled={disabled}>
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="static">静态 IP</SelectItem>
+              <SelectItem value="dhcp">DHCP</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">IP 地址</Label>
+          <Input value={config.ipAddress} onChange={(e) => onChange({ ipAddress: e.target.value })} disabled={disabled || !isStatic} className="h-9 text-sm" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">子网掩码</Label>
+          <Input value={config.subnetMask} onChange={(e) => onChange({ subnetMask: e.target.value })} disabled={disabled || !isStatic} className="h-9 text-sm" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">网关</Label>
+          <Input value={config.gateway} onChange={(e) => onChange({ gateway: e.target.value })} disabled={disabled || !isStatic} className="h-9 text-sm" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">首选 DNS</Label>
+          <Input value={config.dnsPrimary} onChange={(e) => onChange({ dnsPrimary: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">备用 DNS</Label>
+          <Input value={config.dnsSecondary} onChange={(e) => onChange({ dnsSecondary: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">路由优先级</Label>
+          <Input value={config.metric} onChange={(e) => onChange({ metric: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+        </div>
+        <label className="flex items-end gap-2 pb-2 text-sm">
+          <ToggleIconButton checked={config.defaultRoute && !disabled} onClick={() => !disabled && onChange({ defaultRoute: !config.defaultRoute })} />
+          默认路由
+        </label>
+      </div>
+
+      {config.id === 'wifi' && (
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-border/30 pt-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">SSID</Label>
+            <Input value={config.ssid || ''} onChange={(e) => onChange({ ssid: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">密码</Label>
+            <Input type="password" value={config.password || ''} onChange={(e) => onChange({ password: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">加密方式</Label>
+            <Input value={config.encryption || ''} onChange={(e) => onChange({ encryption: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+          </div>
+        </div>
+      )}
+
+      {config.id === '4g' && (
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-border/30 pt-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">APN</Label>
+            <Input value={config.apn || ''} onChange={(e) => onChange({ apn: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">用户名</Label>
+            <Input value={config.username || ''} onChange={(e) => onChange({ username: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">密码</Label>
+            <Input type="password" value={config.password || ''} onChange={(e) => onChange({ password: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [network, setNetwork] = useState<INetworkSettings>({ ...MOCK_NETWORK_SETTINGS });
+  const [wirelessSlots, setWirelessSlots] = useState<IWirelessSlotSettings>(() => LoadWirelessSlots());
+  const [networkInterfaces, setNetworkInterfaces] = useState<INetworkInterfaceSettings>(() => LoadNetworkInterfaces());
   const [time, setTime] = useState<ITimeSettings>({ ...MOCK_TIME_SETTINGS });
   const [security, setSecurity] = useState<ISecuritySettings>({ ...MOCK_SECURITY_SETTINGS });
   const [services, setServices] = useState<IServiceItem[]>([...MOCK_SERVICES]);
@@ -118,16 +284,42 @@ export default function SettingsPage() {
   const [showNewPwd, setShowNewPwd] = useState(false);
 
   const saveAll = () => {
+    localStorage.setItem(WIRELESS_STORAGE_KEY, JSON.stringify(wirelessSlots));
+    localStorage.setItem(NETWORK_STORAGE_KEY, JSON.stringify(networkInterfaces));
+    window.dispatchEvent(new Event('zaihong:wireless-config-changed'));
+    window.dispatchEvent(new Event('zaihong:network-config-changed'));
     toast.success('所有配置已保存，部分更改将在重启服务后生效。');
   };
 
   const resetAll = () => {
     setNetwork({ ...MOCK_NETWORK_SETTINGS });
+    setWirelessSlots({ ...MOCK_WIRELESS_SLOT_SETTINGS });
+    setNetworkInterfaces({
+      ...MOCK_NETWORK_INTERFACE_SETTINGS,
+      interfaces: { ...MOCK_NETWORK_INTERFACE_SETTINGS.interfaces },
+    });
+    localStorage.setItem(WIRELESS_STORAGE_KEY, JSON.stringify(MOCK_WIRELESS_SLOT_SETTINGS));
+    localStorage.setItem(NETWORK_STORAGE_KEY, JSON.stringify(MOCK_NETWORK_INTERFACE_SETTINGS));
+    window.dispatchEvent(new Event('zaihong:wireless-config-changed'));
+    window.dispatchEvent(new Event('zaihong:network-config-changed'));
     setTime({ ...MOCK_TIME_SETTINGS });
     setSecurity({ ...MOCK_SECURITY_SETTINGS });
     setServices([...MOCK_SERVICES]);
     setShowResetDialog(false);
     toast.success('已恢复默认配置');
+  };
+
+  const updateInterface = (id: NetworkInterfaceId, patch: Partial<INetworkInterfaceConfig>) => {
+    setNetworkInterfaces((prev) => ({
+      ...prev,
+      interfaces: {
+        ...prev.interfaces,
+        [id]: {
+          ...prev.interfaces[id],
+          ...patch,
+        },
+      },
+    }));
   };
 
   const addAllowedIp = () => {
@@ -248,6 +440,115 @@ export default function SettingsPage() {
                 />
               </div>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Wireless Slot Settings */}
+      <Card className="border-border/40 bg-card/60">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Wifi className="size-4 text-primary" />
+            无线扩展槽设置
+          </CardTitle>
+          <CardDescription>确定两个无线扩展槽安装的具体模块类型</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">4G/WiFi 模块槽位</Label>
+              <Select value={wirelessSlots.slot1} onValueChange={(value) => setWirelessSlots((prev) => ({ ...prev, slot1: value as IWirelessSlotSettings['slot1'] }))}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="wifi">WiFi 模块</SelectItem>
+                  <SelectItem value="4g">4G 模块</SelectItem>
+                  <SelectItem value="none">未安装</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">蓝牙/星闪 模块槽位</Label>
+              <Select value={wirelessSlots.slot2} onValueChange={(value) => setWirelessSlots((prev) => ({ ...prev, slot2: value as IWirelessSlotSettings['slot2'] }))}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ble">蓝牙模块</SelectItem>
+                  <SelectItem value="slb">星闪模块</SelectItem>
+                  <SelectItem value="none">未安装</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Network Interface Settings */}
+      <Card className="border-border/40 bg-card/60">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Radio className="size-4 text-primary" />
+            网卡网络配置
+          </CardTitle>
+          <CardDescription>管理两路以太网、4G 和 WIFI 网卡，支持网桥模式用于手拉手布线</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              { value: 'independent', title: '独立网卡模式', desc: 'ETH1/ETH2 分别配置独立 IP' },
+              { value: 'bridge', title: '网桥模式', desc: '两路网口共用 BR0 网卡，支持手拉手连接' },
+            ].map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => setNetworkInterfaces((prev) => ({ ...prev, ethernetMode: item.value as INetworkInterfaceSettings['ethernetMode'] }))}
+                className={`rounded-xl border p-4 text-left transition-all ${
+                  networkInterfaces.ethernetMode === item.value
+                    ? 'border-primary/60 bg-primary/10'
+                    : 'border-border/40 bg-card hover:border-primary/30'
+                }`}
+              >
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Link2 className="size-4 text-primary" />
+                  {item.title}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">{item.desc}</div>
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {networkInterfaces.ethernetMode === 'bridge' ? (
+              <NetworkInterfaceCard
+                config={networkInterfaces.interfaces.bridge}
+                onChange={(patch) => updateInterface('bridge', patch)}
+              />
+            ) : (
+              <>
+                <NetworkInterfaceCard
+                  config={networkInterfaces.interfaces.eth1}
+                  onChange={(patch) => updateInterface('eth1', patch)}
+                />
+                <NetworkInterfaceCard
+                  config={networkInterfaces.interfaces.eth2}
+                  onChange={(patch) => updateInterface('eth2', patch)}
+                />
+              </>
+            )}
+            <NetworkInterfaceCard
+              config={networkInterfaces.interfaces['4g']}
+              disabled={wirelessSlots.slot1 !== '4g'}
+              disabledReason="4G 模块未安装"
+              onChange={(patch) => updateInterface('4g', patch)}
+            />
+            <NetworkInterfaceCard
+              config={networkInterfaces.interfaces.wifi}
+              disabled={wirelessSlots.slot1 !== 'wifi'}
+              disabledReason="WiFi 模块未安装"
+              onChange={(patch) => updateInterface('wifi', patch)}
+            />
           </div>
         </CardContent>
       </Card>

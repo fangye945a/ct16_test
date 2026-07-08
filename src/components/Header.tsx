@@ -36,7 +36,6 @@ export default function Header() {
           <div className="hidden sm:flex items-center gap-2">
             <Wifi className="size-4 text-success" />
             <span className="text-sm font-medium">{MOCK_SYSTEM_INFO.deviceName}</span>
-            <span className="text-xs text-muted-foreground">{MOCK_SYSTEM_INFO.model}</span>
           </div>
         </div>
 

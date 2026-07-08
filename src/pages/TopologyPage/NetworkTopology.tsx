@@ -6,10 +6,7 @@ import {
   Crown,
   Home,
   Wifi,
-  WifiOff,
   Users,
-  Gauge,
-  Activity,
 } from 'lucide-react';
 import { MOCK_NETWORK_DEVICES, type INetworkDevice } from '@/data/topology';
 
@@ -295,11 +292,6 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
           <span className="text-[10px] font-black text-[#9CA3AF]">
             <span className="text-[#00B894]">{onlineCount}</span>/{totalCount} 在线
           </span>
-        </div>
-        <span className="w-px h-4 bg-[#F3F4F6]" />
-        <div className="flex items-center gap-1.5">
-          <Activity className="size-3 text-[#9CA3AF]" />
-          <span className="text-[10px] font-black text-[#9CA3AF]">1.2 Gbps</span>
         </div>
       </div>
 
