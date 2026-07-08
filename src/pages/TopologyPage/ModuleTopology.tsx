@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Cpu,
   Wifi,
@@ -161,6 +169,9 @@ function ModulePanelHeader({
 
 // DI Module Control Panel
 function DIControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => void }) {
+  const leftChannels = slot.channelList.slice(0, 8);
+  const rightChannels = slot.channelList.slice(8, 16);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -169,19 +180,23 @@ function DIControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => v
       className="bg-white rounded-[32px] border border-[#F3F4F6] shadow-lg p-6"
     >
       <ModulePanelHeader slot={slot} title={`${slot.model} 通道状态`} subtitle="16路数字量输入" onClose={onClose} />
-      <div className="grid grid-cols-4 gap-2">
-        {slot.channelList.map((ch) => {
-          const sc = STATUS_COLORS[ch.status];
-          return (
-            <div key={ch.index} className={`flex flex-col items-center gap-1.5 p-2.5 rounded-2xl border ${sc.border} ${sc.bg}`}>
-              <span className={`size-2.5 rounded-full ${sc.dot} ${ch.status === 'normal' && ch.value === 'ON' ? 'animate-pulse' : ''}`} />
-              <span className="text-[9px] font-black text-[#111827]">{ch.label}</span>
-              <Badge variant="outline" className={`text-[8px] font-black uppercase px-1.5 py-0 rounded-full ${sc.text} ${sc.border}`}>
-                {ch.value}
-              </Badge>
-            </div>
-          );
-        })}
+      <div className="grid grid-cols-2 gap-3">
+        {[leftChannels, rightChannels].map((column, columnIndex) => (
+          <div key={columnIndex} className="space-y-2">
+            {column.map((ch) => {
+              const sc = STATUS_COLORS[ch.status];
+              return (
+                <div key={ch.index} className={`flex items-center gap-2 p-2.5 rounded-2xl border ${sc.border} ${sc.bg}`}>
+                  <span className={`size-2.5 rounded-full ${sc.dot} ${ch.status === 'normal' && ch.value === 'ON' ? 'animate-pulse' : ''}`} />
+                  <span className="text-[10px] font-black text-[#111827]">{ch.label}</span>
+                  <Badge variant="outline" className={`ml-auto text-[8px] font-black uppercase px-1.5 py-0 rounded-full ${sc.text} ${sc.border}`}>
+                    {ch.value}
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </motion.div>
   );
@@ -190,6 +205,8 @@ function DIControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => v
 // DO Module Control Panel
 function DOControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => void }) {
   const [channels, setChannels] = useState(slot.channelList);
+  const leftChannels = channels.slice(0, 8);
+  const rightChannels = channels.slice(8, 16);
 
   const toggleChannel = (index: number) => {
     setChannels((prev) =>
@@ -207,27 +224,31 @@ function DOControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => v
       className="bg-white rounded-[32px] border border-[#F3F4F6] shadow-lg p-6"
     >
       <ModulePanelHeader slot={slot} title={`${slot.model} 输出控制`} subtitle="16路数字量输出 · 点击切换" onClose={onClose} />
-      <div className="grid grid-cols-4 gap-2">
-        {channels.map((ch) => {
-          const isOn = ch.value === 'ON';
-          return (
-            <button
-              key={ch.index}
-              onClick={() => toggleChannel(ch.index)}
-              className={`flex flex-col items-center gap-1.5 p-2.5 rounded-2xl border transition-all duration-200 ${
-                isOn
-                  ? 'bg-[#00B894]/10 border-[#00B894]/30'
-                  : 'bg-[#F9FAFB] border-[#F3F4F6] hover:border-[#00B894]/20'
-              }`}
-            >
-              <span className={`size-2.5 rounded-full ${isOn ? 'bg-[#00B894] animate-pulse' : 'bg-[#9CA3AF]'}`} />
-              <span className="text-[9px] font-black text-[#111827]">{ch.label}</span>
-              <Badge variant="outline" className={`text-[8px] font-black uppercase px-1.5 py-0 rounded-full ${isOn ? 'text-[#00B894] border-[#00B894]/30' : 'text-[#9CA3AF] border-[#F3F4F6]'}`}>
-                {ch.value}
-              </Badge>
-            </button>
-          );
-        })}
+      <div className="grid grid-cols-2 gap-3">
+        {[leftChannels, rightChannels].map((column, columnIndex) => (
+          <div key={columnIndex} className="space-y-2">
+            {column.map((ch) => {
+              const isOn = ch.value === 'ON';
+              return (
+                <button
+                  key={ch.index}
+                  onClick={() => toggleChannel(ch.index)}
+                  className={`flex w-full items-center gap-2 p-2.5 rounded-2xl border transition-all duration-200 ${
+                    isOn
+                      ? 'bg-[#00B894]/10 border-[#00B894]/30'
+                      : 'bg-[#F9FAFB] border-[#F3F4F6] hover:border-[#00B894]/20'
+                  }`}
+                >
+                  <span className={`size-2.5 rounded-full ${isOn ? 'bg-[#00B894] animate-pulse' : 'bg-[#9CA3AF]'}`} />
+                  <span className="text-[10px] font-black text-[#111827]">{ch.label}</span>
+                  <Badge variant="outline" className={`ml-auto text-[8px] font-black uppercase px-1.5 py-0 rounded-full ${isOn ? 'text-[#00B894] border-[#00B894]/30' : 'text-[#9CA3AF] border-[#F3F4F6]'}`}>
+                    {ch.value}
+                  </Badge>
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </motion.div>
   );
@@ -242,7 +263,7 @@ function AIControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => v
       exit={{ opacity: 0, y: 20 }}
       className="bg-white rounded-[32px] border border-[#F3F4F6] shadow-lg p-6"
     >
-      <ModulePanelHeader slot={slot} title={`${slot.model} 实时数值`} subtitle="8路模拟量输入" onClose={onClose} />
+      <ModulePanelHeader slot={slot} title={`${slot.model} 实时数值`} subtitle="8路电流输入" onClose={onClose} />
       <div className="space-y-3">
         {slot.channelList.map((ch) => {
           const sc = STATUS_COLORS[ch.status];
@@ -286,7 +307,7 @@ function AOControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => v
       exit={{ opacity: 0, y: 20 }}
       className="bg-white rounded-[32px] border border-[#F3F4F6] shadow-lg p-6"
     >
-      <ModulePanelHeader slot={slot} title={`${slot.model} 输出调节`} subtitle="8路模拟量输出 · 拖动滑块调节" onClose={onClose} />
+      <ModulePanelHeader slot={slot} title={`${slot.model} 输出调节`} subtitle="4路电压输出 + 4路电流输出 · 拖动滑块调节" onClose={onClose} />
       <div className="space-y-4">
         {slot.channelList.map((ch) => {
           const isVoltage = ch.unit === 'V';
@@ -316,8 +337,25 @@ function AOControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => v
   );
 }
 
-// RS485 Module Control Panel
-function RS485ControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => void }) {
+// Serial Module Control Panel
+function SerialControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => void }) {
+  const [activeChannel, setActiveChannel] = useState(slot.channelList[0]?.label || 'COM1');
+  const [sendText, setSendText] = useState('');
+  const [logs, setLogs] = useState([
+    '[RX] 10:24:13 01 03 00 00 00 02 C4 0B',
+    '[TX] 10:24:13 01 03 04 00 7B 00 42 8A 31',
+    '[RX] 10:24:15 AT+PING',
+    '[TX] 10:24:15 OK',
+  ]);
+
+  const handleSend = () => {
+    if (!sendText.trim()) {
+      return;
+    }
+    setLogs((prev) => [...prev, `[TX] ${new Date().toLocaleTimeString('zh-CN', { hour12: false })} ${sendText.trim()}`]);
+    setSendText('');
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -326,38 +364,154 @@ function RS485ControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () =
       className="bg-white rounded-[32px] border border-[#F3F4F6] shadow-lg p-6"
     >
       <ModulePanelHeader slot={slot} title={`${slot.model} 接口配置`} subtitle={slot.spec} onClose={onClose} />
-      <div className="space-y-3">
-        {slot.channelList.map((ch) => (
-          <div key={ch.index} className="p-4 rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB]">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="size-2 rounded-full bg-[#00B894] animate-pulse" />
-                <span className="text-sm font-black text-[#111827]">{ch.label}</span>
-              </div>
-              <Badge className="text-[9px] font-black bg-[#00B894]/10 text-[#00B894] border-[#00B894]/20 rounded-full px-2 py-0.5">
-                已连接
-              </Badge>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] p-4">
+            <div className="mb-3 flex flex-wrap gap-2">
+              {slot.channelList.map((ch) => (
+                <button
+                  key={ch.index}
+                  onClick={() => setActiveChannel(ch.label)}
+                  className={`rounded-full border px-3 py-1 text-[10px] font-black transition-colors ${
+                    activeChannel === ch.label
+                      ? 'border-[#00B894]/40 bg-[#00B894]/10 text-[#00B894]'
+                      : 'border-[#E5E7EB] bg-white text-[#9CA3AF]'
+                  }`}
+                >
+                  {ch.label}
+                </button>
+              ))}
             </div>
-            <div className="grid grid-cols-2 gap-2 text-[10px]">
-              <div className="flex justify-between p-2 rounded-xl bg-white">
-                <span className="text-[#9CA3AF] font-bold">波特率</span>
-                <span className="font-black text-[#111827]">{ch.value}</span>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] text-[#9CA3AF]">波特率</Label>
+                <Select defaultValue={slot.channelList.find((ch) => ch.label === activeChannel)?.value.replace('bps', '') || '115200'}>
+                  <SelectTrigger className="h-9 bg-white text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="4800">4800</SelectItem>
+                    <SelectItem value="9600">9600</SelectItem>
+                    <SelectItem value="57600">57600</SelectItem>
+                    <SelectItem value="115200">115200</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="flex justify-between p-2 rounded-xl bg-white">
-                <span className="text-[#9CA3AF] font-bold">数据位</span>
-                <span className="font-black text-[#111827]">8</span>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] text-[#9CA3AF]">数据位</Label>
+                <Select defaultValue="8">
+                  <SelectTrigger className="h-9 bg-white text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7">7</SelectItem>
+                    <SelectItem value="8">8</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="flex justify-between p-2 rounded-xl bg-white">
-                <span className="text-[#9CA3AF] font-bold">校验位</span>
-                <span className="font-black text-[#111827]">None</span>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] text-[#9CA3AF]">校验位</Label>
+                <Select defaultValue="none">
+                  <SelectTrigger className="h-9 bg-white text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="odd">Odd</SelectItem>
+                    <SelectItem value="even">Even</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="flex justify-between p-2 rounded-xl bg-white">
-                <span className="text-[#9CA3AF] font-bold">停止位</span>
-                <span className="font-black text-[#111827]">1</span>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] text-[#9CA3AF]">停止位</Label>
+                <Select defaultValue="1">
+                  <SelectTrigger className="h-9 bg-white text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+            </div>
+            <Button size="sm" className="mt-4 bg-[#00B894] text-white hover:bg-[#00A77F]">应用配置</Button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-[#F3F4F6] bg-[#111827] p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-xs font-black text-white">{activeChannel} 串口调试助手</div>
+            <Badge className="rounded-full border-[#00B894]/30 bg-[#00B894]/10 text-[9px] font-black text-[#00B894]">监听中</Badge>
+          </div>
+          <div className="h-48 overflow-y-auto rounded-xl bg-black/40 p-3 font-mono text-[10px] leading-5 text-[#D1FAE5]">
+            {logs.map((line, index) => (
+              <div key={`${line}-${index}`}>{line}</div>
+            ))}
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Textarea
+              value={sendText}
+              onChange={(event) => setSendText(event.target.value)}
+              placeholder="输入要发送的数据，如 AT 或 HEX 字符串"
+              className="min-h-16 flex-1 border-white/10 bg-white/10 text-xs text-white placeholder:text-white/40"
+            />
+            <Button onClick={handleSend} className="self-stretch bg-[#00B894] text-white hover:bg-[#00A77F]">发送</Button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function NMEAControlPanel({ slot, onClose }: { slot: IModuleSlot; onClose: () => void }) {
+  const fixed = slot.status === 'normal';
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      className="bg-white rounded-[32px] border border-[#F3F4F6] shadow-lg p-6"
+    >
+      <ModulePanelHeader slot={slot} title={`${slot.model} 定位状态`} subtitle="1路 RS232 NMEA 定位接口" onClose={onClose} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={`size-2.5 rounded-full ${fixed ? 'bg-[#00B894] animate-pulse' : 'bg-[#F97316]'}`} />
+              <span className="text-sm font-black text-[#111827]">{fixed ? '定位成功' : '未定位'}</span>
+            </div>
+            <Badge className={`rounded-full text-[9px] font-black ${fixed ? 'bg-[#00B894]/10 text-[#00B894] border-[#00B894]/20' : 'bg-[#F97316]/10 text-[#F97316] border-[#F97316]/20'}`}>
+              {slot.channelList[0]?.label || 'RS232'}
+            </Badge>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-[10px]">
+            <div className="rounded-xl bg-white p-3">
+              <div className="font-bold text-[#9CA3AF]">波特率</div>
+              <div className="font-black text-[#111827]">{slot.channelList[0]?.value || '4800bps'}</div>
+            </div>
+            <div className="rounded-xl bg-white p-3">
+              <div className="font-bold text-[#9CA3AF]">协议</div>
+              <div className="font-black text-[#111827]">NMEA 0183</div>
+            </div>
+            <div className="rounded-xl bg-white p-3">
+              <div className="font-bold text-[#9CA3AF]">纬度</div>
+              <div className="font-black text-[#111827]">{fixed ? '28.19409 N' : '--'}</div>
+            </div>
+            <div className="rounded-xl bg-white p-3">
+              <div className="font-bold text-[#9CA3AF]">经度</div>
+              <div className="font-black text-[#111827]">{fixed ? '112.98228 E' : '--'}</div>
             </div>
           </div>
-        ))}
+        </div>
+        <div className="rounded-2xl border border-[#F3F4F6] bg-[#111827] p-4">
+          <div className="mb-3 text-xs font-black text-white">NMEA 原始报文</div>
+          <div className="h-52 overflow-y-auto rounded-xl bg-black/40 p-3 font-mono text-[10px] leading-5 text-[#D1FAE5]">
+            <div>$GNRMC,024813.00,A,2811.6454,N,11258.9368,E,0.018,,080726,,,A*6C</div>
+            <div>$GNGGA,024813.00,2811.6454,N,11258.9368,E,1,18,0.8,68.2,M,-12.1,M,,*52</div>
+            <div>$GNGSA,A,3,03,08,10,14,18,21,24,26,29,31,32,36,1.2,0.8,0.9*33</div>
+          </div>
+        </div>
       </div>
     </motion.div>
   );
@@ -404,21 +558,26 @@ function WirelessSlotCard({
             : 'border-[#F3F4F6] bg-[#F9FAFB] hover:border-[#00B894]/30'
         }`}
       >
-        <div className="flex items-center gap-2 mb-2">
+        <div className="mb-2 flex items-center justify-between">
+          <Badge variant="outline" className="rounded-full border-[#E5E7EB] bg-white px-2 py-0 text-[8px] font-black text-[#6B7280]">
+            {slotLabel}
+          </Badge>
+          {!isNone && <span className="size-2 rounded-full bg-[#00B894] animate-pulse" />}
+          {isNone && <span className="size-2 rounded-full bg-[#9CA3AF]" />}
+        </div>
+        <div className="flex items-center gap-3 mb-2">
           <div
-            className="size-7 rounded-xl flex items-center justify-center"
+            className="size-10 rounded-2xl flex items-center justify-center"
             style={{ backgroundColor: `${selected.color}18` }}
           >
             <div style={{ color: selected.color }}>
-              <SelectedIcon className="size-3.5" />
+              <SelectedIcon className="size-5" />
             </div>
           </div>
-          <div>
-            <div className="text-[10px] font-black text-[#111827]">{slotLabel}</div>
-            <div className="text-[8px] text-[#9CA3AF]">{selected.label}</div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-black text-[#111827]">{selected.label}</div>
+            <div className="mt-0.5 text-[9px] font-bold text-[#9CA3AF]">当前安装模块</div>
           </div>
-          {!isNone && <span className="size-2 rounded-full bg-[#00B894] ml-auto animate-pulse" />}
-          {isNone && <span className="size-2 rounded-full bg-[#9CA3AF] ml-auto" />}
         </div>
         {!isNone && (
           <div className="flex items-center gap-2 text-[9px]">
@@ -781,7 +940,6 @@ function IOModuleCard({
 
 export default function ModuleTopology() {
   const [selectedSlot, setSelectedSlot] = useState<IModuleSlot | null>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
 
   const rightSlots = MOCK_MODULE_SLOTS
     .filter((s) => s.position === 'right')
@@ -792,12 +950,7 @@ export default function ModuleTopology() {
       slotNumber: index + 1,
     }));
 
-  const handleSlotSelect = (slot: IModuleSlot) => {
-    setSelectedSlot(slot);
-    window.setTimeout(() => {
-      panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 80);
-  };
+  const handleSlotSelect = (slot: IModuleSlot) => setSelectedSlot(slot);
 
   const renderControlPanel = () => {
     if (!selectedSlot) return null;
@@ -807,9 +960,9 @@ export default function ModuleTopology() {
     if (selectedSlot.type === 'DO 输出') return <DOControlPanel slot={selectedSlot} onClose={onClose} />;
     if (selectedSlot.type === 'AI 输入') return <AIControlPanel slot={selectedSlot} onClose={onClose} />;
     if (selectedSlot.type === 'AO 输出') return <AOControlPanel slot={selectedSlot} onClose={onClose} />;
-    if (selectedSlot.type === 'RS485 通信') return <RS485ControlPanel slot={selectedSlot} onClose={onClose} />;
-    if (selectedSlot.type === 'RS232 通信') return <RS485ControlPanel slot={selectedSlot} onClose={onClose} />;
-    if (selectedSlot.type === 'NMEA 通信') return <RS485ControlPanel slot={selectedSlot} onClose={onClose} />;
+    if (selectedSlot.type === 'RS485 通信') return <SerialControlPanel slot={selectedSlot} onClose={onClose} />;
+    if (selectedSlot.type === 'RS232 通信') return <SerialControlPanel slot={selectedSlot} onClose={onClose} />;
+    if (selectedSlot.type === 'NMEA 通信') return <NMEAControlPanel slot={selectedSlot} onClose={onClose} />;
     return null;
   };
 
@@ -859,28 +1012,14 @@ export default function ModuleTopology() {
         </div>
       </div>
 
-      {/* Control panel */}
-      <div ref={panelRef} className="scroll-mt-6">
-        <AnimatePresence mode="wait">
-          {selectedSlot ? (
-            <div className="w-full">{renderControlPanel()}</div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-[32px] border border-dashed border-[#E5E7EB] shadow-sm p-8 text-center"
-            >
-              <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-[#F9FAFB]">
-                <Settings2 className="size-5 text-[#9CA3AF]" />
-              </div>
-              <div className="text-sm font-black text-[#111827]">子模块动态显示</div>
-              <div className="mt-1 text-[10px] font-bold text-[#9CA3AF]">
-                点击上方 IO 扩展模块组中的子模块后，在此查看实时状态与控制项
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      <Dialog open={selectedSlot !== null} onOpenChange={(open) => !open && setSelectedSlot(null)}>
+        <DialogContent className="max-w-5xl border-0 bg-transparent p-0 shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>扩展子模块详情</DialogTitle>
+          </DialogHeader>
+          {renderControlPanel()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -9,6 +9,8 @@ type DeviceGroup = {
   deviceType: string;
   devices: IDeviceNode[];
   x: number;
+  width: number;
+  collapsed: boolean;
 };
 
 const STATUS_STYLE = {
@@ -17,36 +19,61 @@ const STATUS_STYLE = {
   offline: { dot: 'bg-[#9CA3AF]', text: 'text-[#9CA3AF]', border: 'border-[#9CA3AF]/25', line: '#D1D5DB', label: '离线' },
 };
 
-const CANVAS_WIDTH = 1180;
+const MIN_CANVAS_WIDTH = 1180;
 const CANVAS_HEIGHT = 640;
-const CONTROLLER_X = CANVAS_WIDTH / 2;
 const CONTROLLER_Y = 78;
 const TYPE_Y = 274;
 const DEVICE_Y = 500;
 const TYPE_WIDTH = 210;
 const DEVICE_WIDTH = 188;
-const GROUP_X_LIST = [170, 410, 650, 890];
+const DEVICE_GAP = 24;
+const GROUP_GAP = 56;
+const CANVAS_PADDING = 80;
 
-function BuildDeviceGroups(devices: IDeviceNode[]): DeviceGroup[] {
+function GetGroupWidth(devices: IDeviceNode[], collapsed: boolean) {
+  if (collapsed) {
+    return TYPE_WIDTH;
+  }
+  return Math.max(TYPE_WIDTH, devices.length * DEVICE_WIDTH + (devices.length - 1) * DEVICE_GAP);
+}
+
+function BuildDeviceGroups(devices: IDeviceNode[], collapsedTypes: Record<string, boolean>): DeviceGroup[] {
   const order = ['温湿度传感器', '执行器', '输入设备', 'PLC控制器'];
   const grouped = devices.reduce<Record<string, IDeviceNode[]>>((acc, node) => {
     acc[node.deviceType] = [...(acc[node.deviceType] || []), node];
     return acc;
   }, {});
 
+  let cursor = CANVAS_PADDING;
   return order
     .filter((deviceType) => grouped[deviceType]?.length)
-    .map((deviceType, index) => ({
-      deviceType,
-      devices: grouped[deviceType],
-      x: GROUP_X_LIST[index] ?? 170 + index * 240,
-    }));
+    .map((deviceType) => {
+      const groupDevices = grouped[deviceType];
+      const collapsed = !!collapsedTypes[deviceType];
+      const width = GetGroupWidth(groupDevices, collapsed);
+      const group = {
+        deviceType,
+        devices: groupDevices,
+        x: cursor + width / 2,
+        width,
+        collapsed,
+      };
+      cursor += width + GROUP_GAP;
+      return group;
+    });
+}
+
+function GetCanvasWidth(groups: DeviceGroup[]) {
+  if (groups.length === 0) {
+    return MIN_CANVAS_WIDTH;
+  }
+  const contentWidth = groups.reduce((sum, group) => sum + group.width, 0) + (groups.length - 1) * GROUP_GAP + CANVAS_PADDING * 2;
+  return Math.max(MIN_CANVAS_WIDTH, contentWidth);
 }
 
 function GetDeviceX(group: DeviceGroup, index: number) {
-  const gap = 82;
-  const offset = ((group.devices.length - 1) * gap) / 2;
-  return group.x - offset + index * gap;
+  const groupStart = group.x - group.width / 2;
+  return groupStart + DEVICE_WIDTH / 2 + index * (DEVICE_WIDTH + DEVICE_GAP);
 }
 
 function ControllerNode() {
@@ -182,11 +209,13 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (node: 
   const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
   const devices = MOCK_DEVICE_NODES;
-  const groups = useMemo(() => BuildDeviceGroups(devices), [devices]);
+  const groups = useMemo(() => BuildDeviceGroups(devices, collapsedTypes), [devices, collapsedTypes]);
+  const canvasWidth = GetCanvasWidth(groups);
+  const controllerX = canvasWidth / 2;
   const normalCount = devices.filter((device) => device.status === 'normal').length;
   const warningCount = devices.filter((device) => device.status === 'warning').length;
   const offlineCount = devices.filter((device) => device.status === 'offline').length;
-  const visibleGroups = groups.filter((group) => !collapsedTypes[group.deviceType]);
+  const visibleGroups = groups.filter((group) => !group.collapsed);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -228,8 +257,8 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (node: 
     setCollapsedTypes((prev) => ({ ...prev, [deviceType]: !prev[deviceType] }));
   };
 
-  const firstGroupX = groups[0]?.x ?? CONTROLLER_X;
-  const lastGroupX = groups[groups.length - 1]?.x ?? CONTROLLER_X;
+  const firstGroupX = groups[0]?.x ?? controllerX;
+  const lastGroupX = groups[groups.length - 1]?.x ?? controllerX;
 
   return (
     <div className="relative overflow-hidden rounded-[48px] border border-[#F3F4F6] bg-white shadow-sm">
@@ -264,16 +293,15 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (node: 
       >
         <div
           className="absolute left-1/2 top-0 transition-transform duration-75"
-          style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT, transform: `translate(calc(-50% + ${pan.x}px), ${pan.y}px) scale(${scale})`, transformOrigin: 'center top' }}
+          style={{ width: canvasWidth, height: CANVAS_HEIGHT, transform: `translate(calc(-50% + ${pan.x}px), ${pan.y}px) scale(${scale})`, transformOrigin: 'center top' }}
         >
           <svg className="pointer-events-none absolute inset-0 h-full w-full">
-            <OrthogonalConnector d={`M ${CONTROLLER_X} 150 L ${CONTROLLER_X} 206 L ${firstGroupX} 206 L ${lastGroupX} 206`} opacity={0.28} />
+            <OrthogonalConnector d={`M ${controllerX} 150 L ${controllerX} 206 L ${firstGroupX} 206 L ${lastGroupX} 206`} opacity={0.28} />
             {groups.map((group) => {
-              const isCollapsed = collapsedTypes[group.deviceType];
               return (
                 <g key={`type-line-${group.deviceType}`}>
                   <OrthogonalConnector d={`M ${group.x} 206 L ${group.x} ${TYPE_Y - 62}`} opacity={0.38} />
-                  {!isCollapsed && (
+                  {!group.collapsed && (
                     <OrthogonalConnector d={`M ${group.x} ${TYPE_Y + 64} L ${group.x} 392`} opacity={0.3} />
                   )}
                 </g>
@@ -303,7 +331,7 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (node: 
             })}
           </svg>
 
-          <div className="absolute" style={{ left: CONTROLLER_X - 120, top: CONTROLLER_Y - 68 }}>
+          <div className="absolute" style={{ left: controllerX - 120, top: CONTROLLER_Y - 68 }}>
             <ControllerNode />
           </div>
 
