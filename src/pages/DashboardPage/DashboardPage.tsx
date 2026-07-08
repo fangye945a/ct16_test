@@ -90,7 +90,7 @@ function MetricCard({
               <div className="size-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}20`, color }}>
                 <Icon className="size-4" />
               </div>
-              <span className="text-sm text-muted-foreground">{title}</span>
+              <span className="text-base text-muted-foreground">{title}</span>
             </div>
             <div className="flex items-center gap-1">
               {trend === 'up' ? (
@@ -98,7 +98,7 @@ function MetricCard({
               ) : (
                 <TrendingDown className="size-3.5 text-destructive" />
               )}
-              <span className={`text-xs font-medium ${trend === 'up' ? 'text-success' : 'text-destructive'}`}>
+              <span className={`text-sm font-medium ${trend === 'up' ? 'text-success' : 'text-destructive'}`}>
                 {trendValue}%
               </span>
             </div>
@@ -106,7 +106,7 @@ function MetricCard({
           <div className="flex items-end justify-between">
             <div>
               <div className="text-3xl font-bold tabular-nums tracking-tight">{value}</div>
-              <div className="text-xs text-muted-foreground">{unit}</div>
+              <div className="text-sm text-muted-foreground">{unit}</div>
             </div>
             <div className="w-24 h-12">
               <ReactECharts option={sparklineOption(sparkData, color)} style={{ height: 48, width: 96 }} />
@@ -185,7 +185,7 @@ export default function DashboardPage() {
           <span className={`relative inline-flex rounded-full size-2.5 ${metrics.overallStatus === 'normal' ? 'bg-success' : metrics.overallStatus === 'warning' ? 'bg-warning' : 'bg-destructive'}`} />
         </span>
         <span className={`text-sm font-semibold ${sc.color}`}>{sc.label}</span>
-        <span className="text-xs text-muted-foreground ml-auto">运行时长: {formatUptime(uptime)}</span>
+        <span className="text-sm text-muted-foreground ml-auto">运行时长: {formatUptime(uptime)}</span>
       </motion.div>
 
       {/* Device Info */}
@@ -207,8 +207,8 @@ export default function DashboardPage() {
           >
             <item.icon className="size-4 text-primary shrink-0" />
             <div className="min-w-0">
-              <div className="text-xs text-muted-foreground">{item.label}</div>
-              <div className="text-sm font-medium truncate">{item.value}</div>
+              <div className="text-sm text-muted-foreground">{item.label}</div>
+              <div className="text-base font-medium truncate">{item.value}</div>
             </div>
           </motion.div>
         ))}
@@ -280,13 +280,13 @@ export default function DashboardPage() {
                 {alertLevelIcon[alert.level]}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={`text-xs ${alert.level === 'error' ? 'border-destructive/50 text-destructive' : 'border-warning/50 text-warning'}`}>
+                    <Badge variant="outline" className={`${alert.level === 'error' ? 'border-destructive/50 text-destructive' : 'border-warning/50 text-warning'}`}>
                       {alert.level === 'error' ? 'ERROR' : 'WARN'}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">{alert.source}</span>
+                    <span className="text-sm text-muted-foreground">{alert.source}</span>
                   </div>
-                  <p className="text-sm mt-1">{alert.message}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-base mt-1">{alert.message}</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">
                     {new Date(alert.timestamp).toLocaleString('zh-CN')}
                   </p>
                 </div>

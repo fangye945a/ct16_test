@@ -80,10 +80,10 @@ function ControllerNode() {
   return (
     <Card className="w-[240px] rounded-[28px] border-2 border-[#00B894]/25 bg-white p-4 shadow-lg">
       <div className="mb-3 flex items-center justify-between">
-        <Badge className="rounded-full border-[#00B894] bg-[#00B894] px-3 py-1 text-[10px] font-black text-white">
+        <Badge className="rounded-full border-[#00B894] bg-[#00B894] px-3 py-1 text-sm font-black text-white">
           控制
         </Badge>
-        <span className="flex items-center gap-1 text-[10px] font-black text-[#00B894]">
+        <span className="flex items-center gap-1 text-sm font-black text-[#00B894]">
           <span className="size-2 rounded-full bg-[#00B894] animate-pulse" />
           运行中
         </span>
@@ -94,7 +94,7 @@ function ControllerNode() {
         </div>
         <div>
           <div className="text-sm font-black text-[#111827]">CT16 在鸿控制器</div>
-          <div className="mt-1 text-[10px] font-bold text-[#9CA3AF]">下游设备树根节点</div>
+          <div className="mt-1 text-sm font-bold text-[#9CA3AF]">下游设备树根节点</div>
         </div>
       </div>
     </Card>
@@ -132,17 +132,17 @@ function TypeNode({
               <Layers3 className="size-4 text-[#00B894]" />
             </div>
             <div>
-              <div className="max-w-[120px] truncate text-xs font-black text-[#111827]">{group.deviceType}</div>
-              <div className="text-[9px] font-bold text-[#9CA3AF]">{interfaceLabels}</div>
+              <div className="max-w-[120px] truncate text-sm font-black text-[#111827]">{group.deviceType}</div>
+              <div className="text-xs font-bold text-[#9CA3AF]">{interfaceLabels}</div>
             </div>
           </div>
           <ToggleIcon className="size-4 text-[#9CA3AF] transition-colors group-hover:text-[#00B894]" />
         </div>
-        <div className="flex items-center justify-between rounded-xl bg-[#F9FAFB] px-2 py-1 text-[9px]">
+        <div className="flex items-center justify-between rounded-xl bg-[#F9FAFB] px-2 py-1 text-xs">
           <span className="font-bold text-[#9CA3AF]">正常设备</span>
           <span className="font-black text-[#111827] tabular-nums">{normalCount}/{group.devices.length}</span>
         </div>
-        <Badge variant="outline" className="mt-2 rounded-full border-[#00B894]/30 px-2 py-0 text-[9px] font-black text-[#00B894]">
+        <Badge variant="outline" className="mt-2 rounded-full border-[#00B894]/30 px-2 py-0 text-xs font-black text-[#00B894]">
           {collapsed ? `已折叠 ${group.devices.length} 台` : `${group.devices.length} 台设备`}
         </Badge>
       </Card>
@@ -170,14 +170,14 @@ function DeviceNodeCard({ node, onSelect }: { node: IDeviceNode; onSelect: (node
             <RadioTower className={`size-4 ${sc.text}`} />
           </div>
           <span className={`size-2 shrink-0 rounded-full ${sc.dot} ${node.status === 'normal' ? 'animate-pulse' : ''}`} />
-          <span className={`ml-auto text-[9px] font-black ${sc.text}`}>{sc.label}</span>
+          <span className={`ml-auto text-xs font-black ${sc.text}`}>{sc.label}</span>
         </div>
-        <div className="truncate text-xs font-black text-[#111827]">{node.serialNumber}</div>
+        <div className="truncate text-sm font-black text-[#111827]">{node.serialNumber}</div>
         <div className="mt-2 flex items-center justify-between border-t border-[#F3F4F6] pt-2">
-          <span className="text-[9px] font-black text-[#9CA3AF]">{node.interfaceLabel}</span>
-          <span className={`max-w-[92px] truncate text-[10px] font-black tabular-nums ${sc.text}`}>
+          <span className="text-xs font-black text-[#9CA3AF]">{node.interfaceLabel}</span>
+          <span className={`max-w-[92px] truncate text-sm font-black tabular-nums ${sc.text}`}>
             {node.value}
-            {node.unit && <span className="ml-0.5 text-[8px] opacity-70">{node.unit}</span>}
+            {node.unit && <span className="ml-0.5 text-[9px] opacity-70">{node.unit}</span>}
           </span>
         </div>
       </Card>
@@ -265,20 +265,20 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (node: 
       <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
         <button onClick={zoomIn} className="flex size-9 items-center justify-center rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] text-sm font-black text-[#9CA3AF] transition-all hover:border-[#00B894]/30 hover:text-[#00B894]">+</button>
         <button onClick={zoomOut} className="flex size-9 items-center justify-center rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] text-sm font-black text-[#9CA3AF] transition-all hover:border-[#00B894]/30 hover:text-[#00B894]">-</button>
-        <button onClick={resetView} className="rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] transition-all hover:border-[#00B894]/30 hover:text-[#00B894]">适应</button>
+        <button onClick={resetView} className="rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] px-3 py-2 text-sm font-black uppercase tracking-widest text-[#9CA3AF] transition-all hover:border-[#00B894]/30 hover:text-[#00B894]">适应</button>
       </div>
 
       <div className="absolute left-4 top-4 z-20 flex items-center gap-3 rounded-2xl border border-[#F3F4F6] bg-white/90 px-4 py-2.5 shadow-sm backdrop-blur-sm">
         <div className="flex items-center gap-1.5">
           <Activity className="size-3.5 text-[#00B894]" />
-          <span className="text-[10px] font-black uppercase tracking-wider text-[#111827]">三层设备树</span>
+          <span className="text-sm font-black uppercase tracking-wider text-[#111827]">三层设备树</span>
         </div>
         <span className="h-4 w-px bg-[#F3F4F6]" />
-        <span className="text-[10px] font-black text-[#9CA3AF]">
+        <span className="text-sm font-black text-[#9CA3AF]">
           <span className="text-[#00B894]">{devices.length}</span> 台设备
         </span>
         <span className="h-4 w-px bg-[#F3F4F6]" />
-        <span className="text-[10px] font-black text-[#9CA3AF]">{groups.length} 类设备</span>
+        <span className="text-sm font-black text-[#9CA3AF]">{groups.length} 类设备</span>
       </div>
 
       <div
@@ -354,15 +354,15 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (node: 
       <div className="absolute bottom-4 left-4 z-20 flex items-center gap-4 rounded-2xl border border-[#F3F4F6] bg-white/90 px-4 py-2.5 shadow-sm backdrop-blur-sm">
         <div className="flex items-center gap-1.5">
           <span className="size-2 rounded-full bg-[#00B894] animate-pulse" />
-          <span className="text-[10px] font-black uppercase text-[#9CA3AF]">正常 {normalCount}</span>
+          <span className="text-sm font-black uppercase text-[#9CA3AF]">正常 {normalCount}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="size-2 rounded-full bg-[#F97316]" />
-          <span className="text-[10px] font-black uppercase text-[#9CA3AF]">告警 {warningCount}</span>
+          <span className="text-sm font-black uppercase text-[#9CA3AF]">告警 {warningCount}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="size-2 rounded-full bg-[#9CA3AF]" />
-          <span className="text-[10px] font-black uppercase text-[#9CA3AF]">离线 {offlineCount}</span>
+          <span className="text-sm font-black uppercase text-[#9CA3AF]">离线 {offlineCount}</span>
         </div>
       </div>
     </div>

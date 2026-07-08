@@ -40,18 +40,6 @@ export default function TopologyPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-black text-[#111827] italic">系统拓扑</h1>
-          <p className="text-xs text-[#9CA3AF] font-medium mt-1">模块拓扑 · 设备拓扑 · 组网拓扑</p>
-        </div>
-      </motion.div>
-
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="w-full">
         <TabsList className="w-full max-w-md bg-[#F3F4F6] rounded-2xl p-1 h-auto">
@@ -62,7 +50,7 @@ export default function TopologyPage() {
               <TabsTrigger
                 key={tab.key}
                 value={tab.key}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black uppercase tracking-wider transition-all ${
                   isActive
                     ? 'bg-white text-[#111827] shadow-sm'
                     : 'text-[#9CA3AF] hover:text-[#111827]'

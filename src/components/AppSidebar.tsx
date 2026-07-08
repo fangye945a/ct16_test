@@ -87,7 +87,7 @@ export default function AppSidebar() {
             <LogoIcon type={logoType} />
           </div>
           <div className="flex-1 min-w-0 self-center group-data-[state=collapsed]:hidden">
-            <div className="text-sm font-semibold truncate">{systemName}</div>
+            <div className="text-base font-semibold truncate">{systemName}</div>
           </div>
         </div>
       </SidebarHeader>
@@ -120,12 +120,12 @@ export default function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <div className="flex items-center gap-2 px-2 py-2 group-data-[state=collapsed]:px-0 group-data-[state=collapsed]:justify-center">
-          <div className="size-7 shrink-0 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
+          <div className="size-8 shrink-0 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground">
             A
           </div>
           <div className="flex-1 min-w-0 group-data-[state=collapsed]:hidden">
-            <div className="text-xs font-medium truncate">Admin</div>
-            <div className="text-xs text-muted-foreground">系统管理员</div>
+            <div className="text-sm font-medium truncate">Admin</div>
+            <div className="text-sm text-muted-foreground">系统管理员</div>
           </div>
         </div>
       </SidebarFooter>

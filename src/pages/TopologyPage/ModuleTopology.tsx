@@ -178,7 +178,7 @@ function LoadNetworkInterfaces(): INetworkInterfaceSettings {
 function AddressModeBadge({ mode }: { mode: INetworkInterfaceConfig['addressMode'] }) {
   const isStatic = mode === 'static';
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0 text-[8px] font-black ${isStatic ? 'border-[#6366F1]/30 text-[#6366F1]' : 'border-[#00B894]/30 text-[#00B894]'}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0 text-xs font-black ${isStatic ? 'border-[#6366F1]/30 text-[#6366F1]' : 'border-[#00B894]/30 text-[#00B894]'}`}>
       {isStatic ? <BadgeCheck className="size-2.5" /> : <Shuffle className="size-2.5" />}
       {isStatic ? '静态' : 'DHCP'}
     </span>
@@ -187,7 +187,7 @@ function AddressModeBadge({ mode }: { mode: INetworkInterfaceConfig['addressMode
 
 function ModuleMeta({ slot }: { slot: IModuleSlot }) {
   return (
-    <div className="mt-2 grid grid-cols-3 gap-2 text-[9px]">
+    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
       <div className="rounded-xl bg-[#F9FAFB] px-2 py-1">
         <div className="font-bold text-[#9CA3AF]">槽位</div>
         <div className="font-black text-[#111827] tabular-nums">#{slot.slotNumber}</div>
@@ -211,8 +211,8 @@ function ChannelIndicator({ channel }: { channel: IModuleChannel }) {
   return (
     <div className="flex items-center gap-1.5">
       <span className={`size-1.5 rounded-full ${sc.dot}`} />
-      <span className="text-[9px] font-bold text-[#9CA3AF]">{channel.label}</span>
-      <span className={`text-[9px] font-black tabular-nums ml-auto ${sc.text}`}>
+      <span className="text-xs font-bold text-[#9CA3AF]">{channel.label}</span>
+      <span className={`text-xs font-black tabular-nums ml-auto ${sc.text}`}>
         {isDigital ? sc.label : isSerial ? channel.value : `${channel.value}${channel.unit || ''}`}
       </span>
     </div>
@@ -232,15 +232,15 @@ function ModulePanelHeader({
     <div className="mb-5">
       <div>
         <div className="text-base font-black text-[#111827]">{title}</div>
-        <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider mt-0.5">{subtitle}</div>
+        <div className="text-sm font-bold text-[#9CA3AF] uppercase tracking-wider mt-0.5">{subtitle}</div>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <Badge variant="outline" className="text-[9px] font-black rounded-full px-2 py-0.5 border-[#F3F4F6] text-[#111827]">
+          <Badge variant="outline" className="text-xs font-black rounded-full px-2 py-0.5 border-[#F3F4F6] text-[#111827]">
             槽位 #{slot.slotNumber}
           </Badge>
-          <Badge variant="outline" className="text-[9px] font-black rounded-full px-2 py-0.5 border-[#00B894]/30 text-[#00B894]">
+          <Badge variant="outline" className="text-xs font-black rounded-full px-2 py-0.5 border-[#00B894]/30 text-[#00B894]">
             {slot.version}
           </Badge>
-          <Badge variant="outline" className="text-[9px] font-black rounded-full px-2 py-0.5 border-[#6366F1]/30 text-[#6366F1]">
+          <Badge variant="outline" className="text-xs font-black rounded-full px-2 py-0.5 border-[#6366F1]/30 text-[#6366F1]">
             ADC {slot.adcValue}
           </Badge>
         </div>
@@ -270,8 +270,8 @@ function DIControlPanel({ slot }: { slot: IModuleSlot }) {
               return (
                 <div key={ch.index} className={`flex items-center gap-2 p-2.5 rounded-2xl border ${sc.border} ${sc.bg}`}>
                   <span className={`size-2.5 rounded-full ${sc.dot} ${IsDigitalOn(ch.value) ? 'animate-pulse' : ''}`} />
-                  <span className="text-[10px] font-black text-[#111827]">{ch.label}</span>
-                  <Badge variant="outline" className={`ml-auto text-[8px] font-black uppercase px-1.5 py-0 rounded-full ${sc.text} ${sc.border}`}>
+                  <span className="text-sm font-black text-[#111827]">{ch.label}</span>
+                  <Badge variant="outline" className={`ml-auto text-xs font-black uppercase px-1.5 py-0 rounded-full ${sc.text} ${sc.border}`}>
                     {sc.label}
                   </Badge>
                 </div>
@@ -323,8 +323,8 @@ function DOControlPanel({ slot }: { slot: IModuleSlot }) {
                   }`}
                 >
                   <span className={`size-2.5 rounded-full ${isOn ? 'bg-[#00B894] animate-pulse' : 'bg-[#9CA3AF]'}`} />
-                  <span className="text-[10px] font-black text-[#111827]">{ch.label}</span>
-                  <Badge variant="outline" className={`ml-auto text-[8px] font-black uppercase px-1.5 py-0 rounded-full ${isOn ? 'text-[#00B894] border-[#00B894]/30' : 'text-[#9CA3AF] border-[#F3F4F6]'}`}>
+                  <span className="text-sm font-black text-[#111827]">{ch.label}</span>
+                  <Badge variant="outline" className={`ml-auto text-xs font-black uppercase px-1.5 py-0 rounded-full ${isOn ? 'text-[#00B894] border-[#00B894]/30' : 'text-[#9CA3AF] border-[#F3F4F6]'}`}>
                     {stateLabel}
                   </Badge>
                 </button>
@@ -358,13 +358,13 @@ function AIControlPanel({ slot }: { slot: IModuleSlot }) {
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
                   <span className={`size-2 rounded-full ${sc.dot}`} />
-                  <span className="text-[10px] font-black text-[#111827]">{ch.label}</span>
+                  <span className="text-sm font-black text-[#111827]">{ch.label}</span>
                 </div>
                 <span className="text-sm font-black text-[#111827] tabular-nums">
-                  {ch.value} <span className="text-[10px] text-[#9CA3AF]">{ch.unit}</span>
+                  {ch.value} <span className="text-sm text-[#9CA3AF]">{ch.unit}</span>
                 </span>
               </div>
-              {sc.lowCurrent && <div className="mb-1.5 text-[9px] font-black text-[#D97706]">电流输入小于 4mA</div>}
+              {sc.lowCurrent && <div className="mb-1.5 text-xs font-black text-[#D97706]">电流输入小于 4mA</div>}
               <div className="h-1.5 bg-[#F3F4F6] rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
@@ -404,13 +404,13 @@ function AOControlPanel({ slot }: { slot: IModuleSlot }) {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className={`size-2 rounded-full ${sc.dot}`} />
-                  <span className="text-[10px] font-black text-[#111827]">{ch.label}</span>
+                  <span className="text-sm font-black text-[#111827]">{ch.label}</span>
                 </div>
                 <span className="text-sm font-black text-[#111827] tabular-nums">
-                  {val.toFixed(1)} <span className="text-[10px] text-[#9CA3AF]">{ch.unit}</span>
+                  {val.toFixed(1)} <span className="text-sm text-[#9CA3AF]">{ch.unit}</span>
                 </span>
               </div>
-              {sc.lowCurrent && <div className="mb-2 text-[9px] font-black text-[#D97706]">电流输出小于 4mA</div>}
+              {sc.lowCurrent && <div className="mb-2 text-xs font-black text-[#D97706]">电流输出小于 4mA</div>}
               <Slider
                 value={[val]}
                 min={0}
@@ -448,7 +448,7 @@ function SerialControlPanel({ slot }: { slot: IModuleSlot }) {
                 <button
                   key={ch.index}
                   onClick={() => setActiveChannel(ch.label)}
-                  className={`rounded-full border px-3 py-1 text-[10px] font-black transition-colors ${
+                  className={`rounded-full border px-3 py-1 text-sm font-black transition-colors ${
                     activeChannel === ch.label
                       ? 'border-[#00B894]/40 bg-[#00B894]/10 text-[#00B894]'
                       : 'border-[#E5E7EB] bg-white text-[#9CA3AF]'
@@ -468,7 +468,7 @@ function SerialControlPanel({ slot }: { slot: IModuleSlot }) {
                 { label: '校验位', value: activePort.params.parity },
               ].map((item) => (
                 <div key={item.label} className="rounded-xl bg-white px-3 py-2">
-                  <div className="text-[10px] font-bold text-[#9CA3AF]">{item.label}</div>
+                  <div className="text-sm font-bold text-[#9CA3AF]">{item.label}</div>
                   <div className="mt-1 text-sm font-black text-[#111827] tabular-nums">{item.value}</div>
                 </div>
               ))}
@@ -476,7 +476,7 @@ function SerialControlPanel({ slot }: { slot: IModuleSlot }) {
           ) : (
             <div className="rounded-2xl border border-dashed border-[#E5E7EB] bg-white p-6 text-center">
               <div className="text-sm font-black text-[#111827]">{activeChannel} 未使用</div>
-              <div className="mt-1 text-[10px] font-bold text-[#9CA3AF]">当前端口无业务绑定，暂无串口参数。</div>
+              <div className="mt-1 text-sm font-bold text-[#9CA3AF]">当前端口无业务绑定，暂无串口参数。</div>
             </div>
           )}
         </div>
@@ -501,11 +501,11 @@ function NMEAControlPanel({ slot }: { slot: IModuleSlot }) {
             <span className={`size-2.5 rounded-full ${fixed ? 'bg-[#00B894] animate-pulse' : 'bg-[#F97316]'}`} />
             <span className="text-sm font-black text-[#111827]">{fixed ? '定位成功' : '未定位'}</span>
           </div>
-          <Badge className={`rounded-full text-[9px] font-black ${fixed ? 'bg-[#00B894]/10 text-[#00B894] border-[#00B894]/20' : 'bg-[#F97316]/10 text-[#F97316] border-[#F97316]/20'}`}>
+          <Badge className={`rounded-full text-xs font-black ${fixed ? 'bg-[#00B894]/10 text-[#00B894] border-[#00B894]/20' : 'bg-[#F97316]/10 text-[#F97316] border-[#F97316]/20'}`}>
             {slot.channelList[0]?.label || 'RS232'}
           </Badge>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-[10px]">
+        <div className="grid grid-cols-2 gap-2 text-sm">
           {[
             { label: '波特率', value: slot.channelList[0]?.value || '4800bps' },
             { label: '数据位', value: '8' },
@@ -591,16 +591,16 @@ function WirelessSlotCard({
           : 'border-[#F3F4F6] bg-[#F9FAFB]'
       }`}
     >
-        <div className="mb-2 flex items-center justify-between">
-          <Badge variant="outline" className="rounded-full border-[#E5E7EB] bg-white px-2 py-0 text-[8px] font-black text-[#6B7280]">
+        <div className="mb-3 flex items-center justify-between">
+          <Badge variant="outline" className="rounded-full border-[#E5E7EB] bg-white px-2 py-0 text-xs font-black text-[#6B7280]">
             {slotLabel}
           </Badge>
           {!isNone && <span className="size-2 rounded-full bg-[#00B894] animate-pulse" />}
           {isNone && <span className="size-2 rounded-full bg-[#9CA3AF]" />}
         </div>
-        <div className="flex items-center gap-3 mb-2">
+        <div className="mb-3 flex items-center gap-3">
           <div
-            className="size-10 rounded-2xl flex items-center justify-center"
+            className="flex size-11 items-center justify-center rounded-2xl"
             style={{ backgroundColor: `${selected.color}18` }}
           >
             <div style={{ color: selected.color }}>
@@ -612,11 +612,11 @@ function WirelessSlotCard({
           </div>
         </div>
         {!isNone && (
-          <div className="rounded-xl border border-white/80 bg-white px-3 py-2">
+          <div className="space-y-2 rounded-xl border border-white/80 bg-white px-3 py-3">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="shrink-0 text-[9px] font-bold text-[#9CA3AF]">{detailLabel}</span>
-                <span className="min-w-0 truncate text-[10px] font-black text-[#111827]">{detailValue}</span>
+                <span className="shrink-0 text-xs font-bold text-[#9CA3AF]">{detailLabel}</span>
+                <span className="min-w-0 truncate text-sm font-black text-[#111827]">{detailValue}</span>
               </div>
               <Badge
                 variant="outline"
@@ -626,14 +626,14 @@ function WirelessSlotCard({
                 运行中
               </Badge>
             </div>
-            <div className="mt-1 flex min-w-0 items-center gap-2">
-              <span className="shrink-0 text-[9px] font-bold text-[#9CA3AF]">{extraLabel}</span>
-              <span className="min-w-0 truncate text-[10px] font-black text-[#111827]">{extraValue}</span>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 text-xs font-bold text-[#9CA3AF]">{extraLabel}</span>
+              <span className="min-w-0 truncate text-sm font-black text-[#111827]">{extraValue}</span>
             </div>
           </div>
         )}
         {isNone && (
-          <div className="text-[9px] font-medium text-[#9CA3AF]">未安装扩展模块</div>
+          <div className="text-xs font-medium text-[#9CA3AF]">未安装扩展模块</div>
         )}
     </div>
   );
@@ -673,46 +673,46 @@ function MainControlUnit() {
       : null;
 
   return (
-    <Card className="h-[680px] p-6 rounded-[48px] border border-[#F3F4F6] shadow-sm bg-white flex flex-col">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+    <Card className="h-[820px] p-6 rounded-[48px] border border-[#F3F4F6] shadow-sm bg-white flex flex-col">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="size-8 rounded-xl bg-[#1F2937]/5 flex items-center justify-center">
             <Cpu className="size-4 text-[#1F2937]" />
           </div>
           <div>
-            <div className="text-sm font-black text-[#111827]">主模块</div>
-            <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">CT16 控制器 · 无线扩展</div>
+            <div className="text-base font-black text-[#111827]">主模块</div>
+            <div className="text-sm font-bold text-[#9CA3AF] uppercase tracking-wider">CT16 控制器 · 无线扩展</div>
           </div>
         </div>
-        <Badge className="text-[9px] font-black rounded-full bg-[#00B894]/10 text-[#00B894] border-[#00B894]/20">
+        <Badge className="text-xs font-black rounded-full bg-[#00B894]/10 text-[#00B894] border-[#00B894]/20">
           在线
         </Badge>
       </div>
 
-      <div className="rounded-[32px] border border-[#F3F4F6] bg-[#F9FAFB] p-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="rounded-[32px] border border-[#F3F4F6] bg-[#F9FAFB] p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
           <div className="size-10 rounded-2xl bg-[#00B894]/10 flex items-center justify-center shrink-0">
             <Cpu className="size-5 text-[#00B894]" />
           </div>
             <div className="min-w-0">
-            <div className="text-sm font-black text-[#111827]">CT16 在鸿控制器</div>
-              <div className="mt-0.5 text-[10px] font-bold text-[#9CA3AF]">主控单元</div>
+            <div className="text-base font-black text-[#111827]">CT16 在鸿控制器</div>
+              <div className="mt-0.5 text-sm font-bold text-[#9CA3AF]">主控单元</div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             {MAIN_MODULE_LEDS.map((led) => {
             return (
-                <div key={led.label} className="flex flex-col items-center gap-1">
+                <div key={led.label} className="flex flex-col items-center gap-1.5">
                   <span className={`size-2.5 rounded-full ${led.dot} ${led.flash ? 'animate-pulse' : ''}`} />
-                <span className="text-[8px] font-black text-[#9CA3AF]">{led.label}</span>
+                <span className="text-xs font-black text-[#9CA3AF]">{led.label}</span>
               </div>
             );
           })}
           </div>
         </div>
 
-        <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl bg-white px-3 py-2 text-[10px]">
+        <div className="mb-4 grid grid-cols-2 gap-x-5 gap-y-2.5 rounded-xl bg-white px-3.5 py-3 text-sm">
           {MAIN_MODULE_INFO.map((item) => (
             <div key={item.label} className="flex items-center gap-1.5">
               <span className="shrink-0 font-bold text-[#9CA3AF]">{item.label}</span>
@@ -721,12 +721,12 @@ function MainControlUnit() {
           ))}
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {ethConfig.map(({ label, config }) => (
-            <div key={label} className="flex items-center gap-2 text-[10px] text-[#9CA3AF]">
+            <div key={label} className="flex items-center gap-2 text-sm text-[#9CA3AF]">
               <Network className="size-3" />
               <span className="font-bold">{label}</span>
-              {networkInterfaces.ethernetMode === 'bridge' && <Badge variant="outline" className="rounded-full px-1.5 py-0 text-[8px] text-[#6366F1] border-[#6366F1]/30">桥接</Badge>}
+              {networkInterfaces.ethernetMode === 'bridge' && <Badge variant="outline" className="rounded-full px-1.5 py-0 text-xs text-[#6366F1] border-[#6366F1]/30">桥接</Badge>}
               <span className="ml-auto flex items-center gap-1.5 font-black text-[#111827]">
                 <AddressModeBadge mode={config.addressMode} />
                 {config.ipAddress}
@@ -735,14 +735,14 @@ function MainControlUnit() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#F3F4F6] text-[10px]">
+        <div className="mt-4 flex items-center gap-2 border-t border-[#F3F4F6] pt-3 text-sm">
           <Power className="size-3 text-[#00B894]" />
           <span className="font-bold text-[#9CA3AF]">DC12-24V/1.0A</span>
           <span className="font-black text-[#00B894] ml-auto">正常</span>
         </div>
       </div>
 
-      <div className="mt-4 grid flex-1 grid-rows-2 gap-3">
+      <div className="mt-4 grid flex-1 grid-rows-2 gap-4">
           <WirelessSlotCard
             slotLabel="4G/WiFi 模块槽位"
             options={SLOT1_OPTIONS}
@@ -790,9 +790,9 @@ function IOModuleCard({
         onClick={() => slot.status !== 'empty' && onSelect(slot)}
       >
         {/* Model badge */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="mb-3 flex items-center justify-between">
           <Badge
-            className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+            className={`text-xs font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
               slot.status === 'empty'
                 ? 'bg-[#F3F4F6] text-[#9CA3AF]'
                 : 'bg-[#1F2937] text-white'
@@ -806,21 +806,21 @@ function IOModuleCard({
         </div>
 
         {/* Module name */}
-        <div className="text-sm font-black text-[#111827] mb-1">{slot.name}</div>
-        <div className="text-[10px] font-bold text-[#9CA3AF] mb-3">{slot.spec}</div>
+        <div className="mb-1.5 text-base font-black text-[#111827]">{slot.name}</div>
+        <div className="mb-3.5 text-sm font-bold text-[#9CA3AF]">{slot.spec}</div>
         {slot.status !== 'empty' && <ModuleMeta slot={slot} />}
 
         {/* Channel indicators */}
         {slot.status !== 'empty' && slot.channelList.length > 0 && (
-          <div className="space-y-1 pt-3 border-t border-[#F3F4F6]">
+          <div className="space-y-1.5 border-t border-[#F3F4F6] pt-3">
             {isSerial
               ? slot.channelList.map((ch) => {
                   const port = GetSerialPortState(slot.model, ch.label);
                   return (
                     <div key={ch.index} className="flex items-center gap-1.5">
                       <span className={`size-1.5 rounded-full ${port.occupied ? 'bg-[#00B894]' : 'bg-[#9CA3AF]'}`} />
-                      <span className="text-[9px] font-bold text-[#9CA3AF]">{ch.label}</span>
-                      <span className={`ml-auto text-[9px] font-black ${port.occupied ? 'text-[#00B894]' : 'text-[#6B7280]'}`}>
+                      <span className="text-xs font-bold text-[#9CA3AF]">{ch.label}</span>
+                      <span className={`ml-auto text-xs font-black ${port.occupied ? 'text-[#00B894]' : 'text-[#6B7280]'}`}>
                         {port.occupied ? '使用中' : '未使用'}
                       </span>
                     </div>
@@ -832,7 +832,7 @@ function IOModuleCard({
                       <ChannelIndicator key={ch.index} channel={ch} />
                     ))}
                     {slot.channelList.length > 4 && (
-                      <div className="text-[9px] font-bold text-[#9CA3AF] text-center pt-1">
+                      <div className="pt-1 text-center text-xs font-bold text-[#9CA3AF]">
                         +{slot.channelList.length - 4} 通道
                       </div>
                     )}
@@ -845,13 +845,13 @@ function IOModuleCard({
         {slot.status === 'empty' && (
           <div className="flex flex-col items-center gap-2 py-4 text-[#D1D5DB]">
             <Plus className="size-6" />
-            <span className="text-[10px] font-bold">可扩展槽位</span>
+            <span className="text-sm font-bold">可扩展槽位</span>
           </div>
         )}
 
         {/* Click hint */}
         {slot.status !== 'empty' && (
-          <div className="flex items-center gap-1 mt-3 pt-3 border-t border-[#F3F4F6] text-[9px] text-[#9CA3AF] group-hover:text-[#00B894] transition-colors">
+          <div className="mt-3 flex items-center gap-1.5 border-t border-[#F3F4F6] pt-3 text-xs text-[#9CA3AF] transition-colors group-hover:text-[#00B894]">
             <Settings2 className="size-3" />
             <span className="font-bold">点击查看详情</span>
           </div>
@@ -899,15 +899,15 @@ export default function ModuleTopology() {
 
         {/* Right: IO expansion modules */}
         <div className="lg:col-span-8">
-          <Card className="h-[680px] p-6 rounded-[48px] border border-[#F3F4F6] shadow-sm bg-white flex flex-col">
-            <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+          <Card className="h-[820px] p-6 rounded-[48px] border border-[#F3F4F6] shadow-sm bg-white flex flex-col">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="size-8 rounded-xl bg-[#1F2937]/5 flex items-center justify-center">
                   <Cable className="size-4 text-[#1F2937]" />
                 </div>
                 <div>
-                  <div className="text-sm font-black text-[#111827]">扩展子模块</div>
-                  <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">
+                  <div className="text-base font-black text-[#111827]">扩展子模块</div>
+                  <div className="text-sm font-bold uppercase tracking-wider text-[#9CA3AF]">
                     后端反馈 {MOCK_IO_MODULE_COUNT} 个模块 · 可视 6 个 · 按 ADC 升序排列
                   </div>
                 </div>
@@ -916,7 +916,7 @@ export default function ModuleTopology() {
                 {Object.entries(ONLINE_STATUS).map(([key, sc]) => (
                   <div key={key} className="flex items-center gap-1">
                     <span className={`size-2 rounded-full ${sc.dot} ${key === 'online' ? 'animate-pulse' : ''}`} />
-                    <span className="text-[9px] font-black text-[#9CA3AF]">{sc.label}</span>
+                    <span className="text-xs font-black text-[#9CA3AF]">{sc.label}</span>
                   </div>
                 ))}
               </div>

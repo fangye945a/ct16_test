@@ -183,9 +183,9 @@ function NetworkInterfaceCard({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label className="text-xs">地址方式</Label>
+          <Label className="text-sm">地址方式</Label>
           <Select value={config.addressMode} onValueChange={(value) => onChange({ addressMode: value as INetworkInterfaceConfig['addressMode'] })} disabled={disabled}>
-            <SelectTrigger className="h-9 text-sm">
+            <SelectTrigger className="h-9 text-base">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -195,28 +195,28 @@ function NetworkInterfaceCard({
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">IP 地址</Label>
-          <Input value={config.ipAddress} onChange={(e) => onChange({ ipAddress: e.target.value })} disabled={disabled || !isStatic} className="h-9 text-sm" />
+          <Label className="text-sm">IP 地址</Label>
+          <Input value={config.ipAddress} onChange={(e) => onChange({ ipAddress: e.target.value })} disabled={disabled || !isStatic} className="h-9 text-base" />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">子网掩码</Label>
-          <Input value={config.subnetMask} onChange={(e) => onChange({ subnetMask: e.target.value })} disabled={disabled || !isStatic} className="h-9 text-sm" />
+          <Label className="text-sm">子网掩码</Label>
+          <Input value={config.subnetMask} onChange={(e) => onChange({ subnetMask: e.target.value })} disabled={disabled || !isStatic} className="h-9 text-base" />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">网关</Label>
-          <Input value={config.gateway} onChange={(e) => onChange({ gateway: e.target.value })} disabled={disabled || !isStatic} className="h-9 text-sm" />
+          <Label className="text-sm">网关</Label>
+          <Input value={config.gateway} onChange={(e) => onChange({ gateway: e.target.value })} disabled={disabled || !isStatic} className="h-9 text-base" />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">首选 DNS</Label>
-          <Input value={config.dnsPrimary} onChange={(e) => onChange({ dnsPrimary: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+          <Label className="text-sm">首选 DNS</Label>
+          <Input value={config.dnsPrimary} onChange={(e) => onChange({ dnsPrimary: e.target.value })} disabled={disabled} className="h-9 text-base" />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">备用 DNS</Label>
-          <Input value={config.dnsSecondary} onChange={(e) => onChange({ dnsSecondary: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+          <Label className="text-sm">备用 DNS</Label>
+          <Input value={config.dnsSecondary} onChange={(e) => onChange({ dnsSecondary: e.target.value })} disabled={disabled} className="h-9 text-base" />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">路由优先级</Label>
-          <Input value={config.metric} onChange={(e) => onChange({ metric: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+          <Label className="text-sm">路由优先级</Label>
+          <Input value={config.metric} onChange={(e) => onChange({ metric: e.target.value })} disabled={disabled} className="h-9 text-base" />
         </div>
         <label className="flex items-end gap-2 pb-2 text-sm">
           <ToggleIconButton checked={config.defaultRoute && !disabled} onClick={() => !disabled && onChange({ defaultRoute: !config.defaultRoute })} />
@@ -227,16 +227,16 @@ function NetworkInterfaceCard({
       {config.id === 'wifi' && (
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-border/30 pt-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">SSID</Label>
-            <Input value={config.ssid || ''} onChange={(e) => onChange({ ssid: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+            <Label className="text-sm">SSID</Label>
+            <Input value={config.ssid || ''} onChange={(e) => onChange({ ssid: e.target.value })} disabled={disabled} className="h-9 text-base" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">密码</Label>
-            <Input type="password" value={config.password || ''} onChange={(e) => onChange({ password: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+            <Label className="text-sm">密码</Label>
+            <Input type="password" value={config.password || ''} onChange={(e) => onChange({ password: e.target.value })} disabled={disabled} className="h-9 text-base" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">加密方式</Label>
-            <Input value={config.encryption || ''} onChange={(e) => onChange({ encryption: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+            <Label className="text-sm">加密方式</Label>
+            <Input value={config.encryption || ''} onChange={(e) => onChange({ encryption: e.target.value })} disabled={disabled} className="h-9 text-base" />
           </div>
         </div>
       )}
@@ -244,16 +244,16 @@ function NetworkInterfaceCard({
       {config.id === '4g' && (
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-border/30 pt-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">APN</Label>
-            <Input value={config.apn || ''} onChange={(e) => onChange({ apn: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+            <Label className="text-sm">APN</Label>
+            <Input value={config.apn || ''} onChange={(e) => onChange({ apn: e.target.value })} disabled={disabled} className="h-9 text-base" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">用户名</Label>
-            <Input value={config.username || ''} onChange={(e) => onChange({ username: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+            <Label className="text-sm">用户名</Label>
+            <Input value={config.username || ''} onChange={(e) => onChange({ username: e.target.value })} disabled={disabled} className="h-9 text-base" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">密码</Label>
-            <Input type="password" value={config.password || ''} onChange={(e) => onChange({ password: e.target.value })} disabled={disabled} className="h-9 text-sm" />
+            <Label className="text-sm">密码</Label>
+            <Input type="password" value={config.password || ''} onChange={(e) => onChange({ password: e.target.value })} disabled={disabled} className="h-9 text-base" />
           </div>
         </div>
       )}
@@ -418,9 +418,9 @@ export default function SettingsPage() {
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">4G/WiFi 模块槽位</Label>
+              <Label className="text-sm">4G/WiFi 模块槽位</Label>
               <Select value={wirelessSlots.slot1} onValueChange={(value) => setWirelessSlots((prev) => ({ ...prev, slot1: value as IWirelessSlotSettings['slot1'] }))}>
-                <SelectTrigger className="h-9 text-sm">
+                <SelectTrigger className="h-9 text-base">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -431,9 +431,9 @@ export default function SettingsPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">蓝牙/星闪 模块槽位</Label>
+              <Label className="text-sm">蓝牙/星闪 模块槽位</Label>
               <Select value={wirelessSlots.slot2} onValueChange={(value) => setWirelessSlots((prev) => ({ ...prev, slot2: value as IWirelessSlotSettings['slot2'] }))}>
-                <SelectTrigger className="h-9 text-sm">
+                <SelectTrigger className="h-9 text-base">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -526,12 +526,12 @@ export default function SettingsPage() {
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">时区</Label>
+              <Label className="text-sm">时区</Label>
               <Select
                 value={time.timezone}
                 onValueChange={(v) => setTime((prev) => ({ ...prev, timezone: v }))}
               >
-                <SelectTrigger className="h-9 text-sm">
+                <SelectTrigger className="h-9 text-base">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -543,11 +543,11 @@ export default function SettingsPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">NTP 服务器</Label>
+              <Label className="text-sm">NTP 服务器</Label>
               <Input
                 value={time.ntpServer}
                 onChange={(e) => setTime((prev) => ({ ...prev, ntpServer: e.target.value }))}
-                className="h-9 text-sm"
+                className="h-9 text-base"
               />
             </div>
           </div>
@@ -565,14 +565,14 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">管理员密码</Label>
+              <Label className="text-sm">管理员密码</Label>
               <Input
                 type="password"
                 value={security.adminPassword}
                 onChange={(e) =>
                   setSecurity((prev) => ({ ...prev, adminPassword: e.target.value }))
                 }
-                className="h-9 text-sm"
+                className="h-9 text-base"
               />
             </div>
             <div className="flex items-end gap-4 pb-1">
@@ -607,13 +607,13 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-xs">IP 访问白名单</Label>
+            <Label className="text-sm">IP 访问白名单</Label>
             <div className="flex items-center gap-2">
               <Input
                 value={newIp}
                 onChange={(e) => setNewIp(e.target.value)}
                 placeholder="输入 IP 地址"
-                className="h-9 text-sm max-w-[240px]"
+                className="h-9 text-base max-w-[240px]"
                 onKeyDown={(e) => e.key === 'Enter' && addAllowedIp()}
               />
               <Button variant="outline" size="sm" className="h-9" onClick={addAllowedIp}>
@@ -646,16 +646,16 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label className="text-xs">系统名称</Label>
+            <Label className="text-sm">系统名称</Label>
             <Input
               value={systemName}
               onChange={(e) => setSystemName(e.target.value)}
-              className="h-9 text-sm max-w-md"
+              className="h-9 text-base max-w-md"
               placeholder="在鸿设备管理系统"
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-xs">系统 Logo</Label>
+            <Label className="text-sm">系统 Logo</Label>
             <div className="flex items-center gap-3 flex-wrap">
               {PRESET_LOGOS.map((item) => (
                 <button
@@ -700,14 +700,14 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
             <div className="space-y-2">
-              <Label className="text-xs">当前密码</Label>
+              <Label className="text-sm">当前密码</Label>
               <div className="relative">
                 <Input
                   type={showCurrentPwd ? 'text' : 'password'}
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="输入当前密码"
-                  className="h-9 text-sm pr-9"
+                  className="h-9 text-base pr-9"
                 />
                 <button
                   type="button"
@@ -719,14 +719,14 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-xs">新密码</Label>
+              <Label className="text-sm">新密码</Label>
               <div className="relative">
                 <Input
                   type={showNewPwd ? 'text' : 'password'}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="输入新密码（至少4位）"
-                  className="h-9 text-sm pr-9"
+                  className="h-9 text-base pr-9"
                 />
                 <button
                   type="button"
@@ -738,13 +738,13 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-xs">确认新密码</Label>
+              <Label className="text-sm">确认新密码</Label>
               <Input
                 type="password"
                 value={confirmNewPassword}
                 onChange={(e) => setConfirmNewPassword(e.target.value)}
                 placeholder="再次输入新密码"
-                className="h-9 text-sm"
+                className="h-9 text-base"
               />
             </div>
           </div>

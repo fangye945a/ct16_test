@@ -30,19 +30,19 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 w-full bg-background/80 backdrop-blur-md border-b border-border/30">
-      <div className="flex h-14 items-center justify-between px-4">
+      <div className="flex h-15 items-center justify-between px-4">
         <div className="flex items-center gap-3">
           <SidebarTrigger />
           <div className="hidden sm:flex items-center gap-2">
             <Wifi className="size-4 text-success" />
-            <span className="text-sm font-medium">{MOCK_SYSTEM_INFO.deviceName}</span>
+            <span className="text-base font-medium">{MOCK_SYSTEM_INFO.deviceName}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Activity className="size-3.5" />
-            <Badge variant="outline" className={`text-xs gap-1 ${s.className}`}>
+            <Badge variant="outline" className={`gap-1 ${s.className}`}>
               <span className="relative flex size-1.5">
                 <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${MOCK_SYSTEM_METRICS.overallStatus === 'normal' ? 'animate-ping bg-success' : MOCK_SYSTEM_METRICS.overallStatus === 'warning' ? 'animate-ping bg-warning' : 'animate-ping bg-destructive'}`} />
                 <span className={`relative inline-flex rounded-full size-1.5 ${MOCK_SYSTEM_METRICS.overallStatus === 'normal' ? 'bg-success' : MOCK_SYSTEM_METRICS.overallStatus === 'warning' ? 'bg-warning' : 'bg-destructive'}`} />
@@ -51,17 +51,17 @@ export default function Header() {
             </Badge>
           </div>
 
-          <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
+          <div className="hidden md:flex items-center gap-1.5 text-base text-muted-foreground">
             <Clock className="size-3.5" />
             <span>{formatDate(now)}</span>
             <span>{formatTime(now)}</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="size-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
+            <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-sm font-semibold text-primary">
               A
             </div>
-            <span className="hidden sm:inline text-sm text-muted-foreground">Admin</span>
+            <span className="hidden sm:inline text-base text-muted-foreground">Admin</span>
           </div>
         </div>
       </div>

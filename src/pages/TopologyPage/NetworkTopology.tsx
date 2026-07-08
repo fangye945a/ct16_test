@@ -165,12 +165,12 @@ function BusNodeCard({
         {(isMaster || isLocal) && (
           <div className="absolute -top-2 left-1/2 -translate-x-1/2 flex items-center gap-1">
             {isMaster && (
-              <Badge className="text-[8px] font-black uppercase px-1.5 py-0 rounded-full bg-[#00B894] text-white border-[#00B894] flex items-center gap-0.5">
+              <Badge className="text-[9px] font-black uppercase px-1.5 py-0 rounded-full bg-[#00B894] text-white border-[#00B894] flex items-center gap-0.5">
                 <Crown className="size-2" />主机
               </Badge>
             )}
             {isLocal && (
-              <Badge className="text-[8px] font-black uppercase px-1.5 py-0 rounded-full bg-[#1F2937] text-white border-[#1F2937] flex items-center gap-0.5">
+              <Badge className="text-[9px] font-black uppercase px-1.5 py-0 rounded-full bg-[#1F2937] text-white border-[#1F2937] flex items-center gap-0.5">
                 <Home className="size-2" />本机
               </Badge>
             )}
@@ -187,7 +187,7 @@ function BusNodeCard({
           <div className="text-[11px] font-black text-[#111827] truncate leading-tight">
             {getShortName(device)}
           </div>
-          <div className="text-[9px] font-bold text-[#9CA3AF] mt-0.5">{device.model}</div>
+          <div className="mt-0.5 text-xs font-bold text-[#9CA3AF]">{device.model}</div>
         </div>
 
         {/* 状态指示灯 */}
@@ -198,7 +198,7 @@ function BusNodeCard({
             }`}
           />
           <span
-            className={`text-[9px] font-black uppercase ${
+            className={`text-xs font-black uppercase ${
               isOnline ? 'text-[#00B894]' : 'text-[#9CA3AF]'
             }`}
           >
@@ -338,7 +338,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
         </button>
         <button
           onClick={resetView}
-          className="px-3 py-2 rounded-2xl bg-[#F9FAFB] border border-[#F3F4F6] text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest hover:text-[#00B894] hover:border-[#00B894]/30 transition-all"
+          className="px-3 py-2 rounded-2xl bg-[#F9FAFB] border border-[#F3F4F6] text-sm font-black text-[#9CA3AF] uppercase tracking-widest hover:text-[#00B894] hover:border-[#00B894]/30 transition-all"
         >
           适应
         </button>
@@ -351,14 +351,14 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
             <Wifi className="size-3.5 text-[#00B894]" />
           </div>
           <div>
-            <div className="text-[10px] font-black text-[#111827]">在鸿轻量软总线</div>
-            <div className="text-[9px] font-bold text-[#9CA3AF]">轻量协同组网通道</div>
+            <div className="text-sm font-black text-[#111827]">在鸿轻量软总线</div>
+            <div className="text-xs font-bold text-[#9CA3AF]">轻量协同组网通道</div>
           </div>
         </div>
         <span className="h-7 w-px bg-[#E5E7EB]" />
         <div className="flex items-center gap-1.5">
           <Users className="size-3 text-[#9CA3AF]" />
-          <span className="text-[10px] font-black text-[#9CA3AF]">
+          <span className="text-sm font-black text-[#9CA3AF]">
             <span className="text-[#00B894]">{onlineCount}</span>/{totalCount} 在线
           </span>
         </div>
@@ -560,20 +560,20 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
       <div className="absolute bottom-4 left-4 z-20 flex items-center gap-4 px-4 py-2.5 bg-white/90 backdrop-blur-sm rounded-2xl border border-[#F3F4F6] shadow-sm">
         <div className="flex items-center gap-1.5">
           <span className="size-2 rounded-full bg-[#00B894] animate-pulse" />
-          <span className="text-[10px] font-black text-[#9CA3AF] uppercase">在线</span>
+          <span className="text-sm font-black text-[#9CA3AF] uppercase">在线</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="size-2 rounded-full bg-[#9CA3AF]" />
-          <span className="text-[10px] font-black text-[#9CA3AF] uppercase">离线</span>
+          <span className="text-sm font-black text-[#9CA3AF] uppercase">离线</span>
         </div>
         <span className="w-px h-3 bg-[#E5E7EB]" />
         <div className="flex items-center gap-1.5">
           <Crown className="size-3 text-[#00B894]" />
-          <span className="text-[10px] font-black text-[#9CA3AF] uppercase">主机</span>
+          <span className="text-sm font-black text-[#9CA3AF] uppercase">主机</span>
         </div>
         <div className="flex items-center gap-1.5">
           <Home className="size-3 text-[#1F2937]" />
-          <span className="text-[10px] font-black text-[#9CA3AF] uppercase">本机</span>
+          <span className="text-sm font-black text-[#9CA3AF] uppercase">本机</span>
         </div>
       </div>
     </div>
