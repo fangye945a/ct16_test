@@ -1,10 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Cpu,
   Wifi,
@@ -428,9 +427,15 @@ function MainControlUnit() {
   const [wireless2, setWireless2] = useState('ble');
 
   return (
-    <div className="space-y-3">
-      {/* Brand header */}
-      <Card className="p-5 rounded-[32px] border border-[#F3F4F6] shadow-sm bg-white">
+    <Card className="h-[640px] p-5 rounded-[48px] border border-[#F3F4F6] shadow-sm bg-white flex flex-col">
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">主控与无线扩展</div>
+        <Badge className="text-[9px] font-black rounded-full bg-[#00B894]/10 text-[#00B894] border-[#00B894]/20">
+          在线
+        </Badge>
+      </div>
+
+      <div className="rounded-[32px] border border-[#F3F4F6] bg-[#F9FAFB] p-4">
         <div className="flex items-center gap-3 mb-4">
           <div className="size-10 rounded-2xl bg-[#00B894]/10 flex items-center justify-center shrink-0">
             <Cpu className="size-5 text-[#00B894]" />
@@ -440,7 +445,7 @@ function MainControlUnit() {
             <div className="text-[10px] font-bold text-[#9CA3AF]">开鸿智谷 · OpenHarmony</div>
           </div>
         </div>
-        {/* Status LEDs */}
+
         <div className="flex items-center gap-3 mb-3">
           {[
             { label: 'POW', status: 'normal' as const },
@@ -458,7 +463,26 @@ function MainControlUnit() {
             );
           })}
         </div>
-        {/* Console + ETH */}
+
+        <div className="grid grid-cols-2 gap-2 mb-3 text-[10px]">
+          <div className="rounded-xl bg-white px-2.5 py-2">
+            <div className="font-bold text-[#9CA3AF]">固件版本</div>
+            <div className="font-black text-[#111827] tabular-nums">V3.2.1</div>
+          </div>
+          <div className="rounded-xl bg-white px-2.5 py-2">
+            <div className="font-bold text-[#9CA3AF]">处理器</div>
+            <div className="font-black text-[#111827]">HPM6754</div>
+          </div>
+          <div className="rounded-xl bg-white px-2.5 py-2">
+            <div className="font-bold text-[#9CA3AF]">主频</div>
+            <div className="font-black text-[#111827]">800MHz</div>
+          </div>
+          <div className="rounded-xl bg-white px-2.5 py-2">
+            <div className="font-bold text-[#9CA3AF]">运行时长</div>
+            <div className="font-black text-[#111827]">45天</div>
+          </div>
+        </div>
+
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 text-[10px] text-[#9CA3AF]">
             <Network className="size-3" />
@@ -476,17 +500,19 @@ function MainControlUnit() {
             <span className="font-black text-[#111827] ml-auto">10/100 Mbps</span>
           </div>
         </div>
-        {/* Power terminal */}
+
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#F3F4F6] text-[10px]">
           <Power className="size-3 text-[#00B894]" />
           <span className="font-bold text-[#9CA3AF]">DC 24V</span>
           <span className="font-black text-[#00B894] ml-auto">正常</span>
         </div>
-      </Card>
+      </div>
 
-      {/* Wireless slots - 可切换 */}
-      <Card className="p-4 rounded-[32px] border border-[#F3F4F6] shadow-sm bg-white">
-        <div className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-3">无线扩展槽</div>
+      <div className="mt-4 flex-1 rounded-[32px] border border-[#F3F4F6] bg-white p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">无线扩展槽</div>
+          <div className="text-[9px] font-bold text-[#9CA3AF]">2 个槽位</div>
+        </div>
         <div className="space-y-3">
           <WirelessSlotCard
             slotLabel="4G/WiFi 模块槽位"
@@ -501,8 +527,18 @@ function MainControlUnit() {
             onSelect={setWireless2}
           />
         </div>
-      </Card>
-    </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-[10px]">
+          <div className="rounded-xl bg-[#F9FAFB] px-2.5 py-2">
+            <div className="font-bold text-[#9CA3AF]">主用链路</div>
+            <div className="font-black text-[#00B894]">WiFi</div>
+          </div>
+          <div className="rounded-xl bg-[#F9FAFB] px-2.5 py-2">
+            <div className="font-bold text-[#9CA3AF]">近场通信</div>
+            <div className="font-black text-[#00B894]">BLE</div>
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -591,9 +627,8 @@ function IOModuleCard({
 
 export default function ModuleTopology() {
   const [selectedSlot, setSelectedSlot] = useState<IModuleSlot | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  const mainSlot = MOCK_MODULE_SLOTS.find((s) => s.slotNumber === 0);
-  const leftSlots = MOCK_MODULE_SLOTS.filter((s) => s.position === 'left' && s.slotNumber > 0);
   const rightSlots = MOCK_MODULE_SLOTS
     .filter((s) => s.position === 'right')
     .sort((a, b) => a.adcValue - b.adcValue)
@@ -602,6 +637,13 @@ export default function ModuleTopology() {
       ...slot,
       slotNumber: index + 1,
     }));
+
+  const handleSlotSelect = (slot: IModuleSlot) => {
+    setSelectedSlot(slot);
+    window.setTimeout(() => {
+      panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  };
 
   const renderControlPanel = () => {
     if (!selectedSlot) return null;
@@ -622,13 +664,13 @@ export default function ModuleTopology() {
       {/* Device structure */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Main control + wireless */}
-        <div className="lg:col-span-4 space-y-4">
+        <div className="lg:col-span-4">
           <MainControlUnit />
         </div>
 
         {/* Right: IO expansion modules */}
         <div className="lg:col-span-8">
-          <Card className="p-6 rounded-[48px] border border-[#F3F4F6] shadow-sm bg-white">
+          <Card className="h-[640px] p-6 rounded-[48px] border border-[#F3F4F6] shadow-sm bg-white flex flex-col">
             <div className="flex items-center gap-3 mb-5">
               <div className="size-8 rounded-xl bg-[#1F2937]/5 flex items-center justify-center">
                 <Cable className="size-4 text-[#1F2937]" />
@@ -636,25 +678,43 @@ export default function ModuleTopology() {
               <div>
                 <div className="text-sm font-black text-[#111827]">IO 扩展模块组</div>
                 <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">
-                  后端反馈 {MOCK_IO_MODULE_COUNT} 个模块 · 按 ADC 升序排列
+                  后端反馈 {MOCK_IO_MODULE_COUNT} 个模块 · 可视 6 个 · 按 ADC 升序排列
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {rightSlots.map((slot) => (
-                <IOModuleCard key={slot.id} slot={slot} onSelect={setSelectedSlot} />
-              ))}
+            <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {rightSlots.map((slot) => (
+                  <IOModuleCard key={slot.id} slot={slot} onSelect={handleSlotSelect} />
+                ))}
+              </div>
             </div>
           </Card>
         </div>
       </div>
 
       {/* Control panel */}
-      <AnimatePresence mode="wait">
-        {selectedSlot && (
-          <div className="w-full">{renderControlPanel()}</div>
-        )}
-      </AnimatePresence>
+      <div ref={panelRef} className="scroll-mt-6">
+        <AnimatePresence mode="wait">
+          {selectedSlot ? (
+            <div className="w-full">{renderControlPanel()}</div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-[32px] border border-dashed border-[#E5E7EB] shadow-sm p-8 text-center"
+            >
+              <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-[#F9FAFB]">
+                <Settings2 className="size-5 text-[#9CA3AF]" />
+              </div>
+              <div className="text-sm font-black text-[#111827]">子模块动态显示</div>
+              <div className="mt-1 text-[10px] font-bold text-[#9CA3AF]">
+                点击上方 IO 扩展模块组中的子模块后，在此查看实时状态与控制项
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Legend */}
       <div className="flex items-center gap-4 px-4 py-2.5 bg-white rounded-2xl border border-[#F3F4F6] shadow-sm w-fit">

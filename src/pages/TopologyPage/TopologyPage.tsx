@@ -15,13 +15,13 @@ import type { INetworkDevice, IDeviceNode } from '@/data/topology';
 type TabKey = 'network' | 'device' | 'module';
 
 const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { key: 'network', label: '组网拓扑', icon: Share2 },
-  { key: 'device', label: '设备拓扑', icon: Cpu },
   { key: 'module', label: '模块拓扑', icon: Cable },
+  { key: 'device', label: '设备拓扑', icon: Cpu },
+  { key: 'network', label: '组网拓扑', icon: Share2 },
 ];
 
 export default function TopologyPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>('network');
+  const [activeTab, setActiveTab] = useState<TabKey>('module');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedNetworkNode, setSelectedNetworkNode] = useState<INetworkDevice | null>(null);
   const [selectedDeviceNode, setSelectedDeviceNode] = useState<IDeviceNode | null>(null);
@@ -48,7 +48,7 @@ export default function TopologyPage() {
       >
         <div>
           <h1 className="text-2xl font-black text-[#111827] italic">系统拓扑</h1>
-          <p className="text-xs text-[#9CA3AF] font-medium mt-1">组网拓扑 · 设备拓扑 · 模块拓扑</p>
+          <p className="text-xs text-[#9CA3AF] font-medium mt-1">模块拓扑 · 设备拓扑 · 组网拓扑</p>
         </div>
       </motion.div>
 

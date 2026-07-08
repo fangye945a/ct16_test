@@ -193,6 +193,12 @@ export default function NodeDetailDrawer({ open, onClose, node, tab }: NodeDetai
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-[#9CA3AF] font-bold flex items-center gap-1.5">
+                      <Hash className="size-3.5" />SN号
+                    </span>
+                    <span className="font-black text-[#111827] text-xs">{node.serialNumber}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[#9CA3AF] font-bold flex items-center gap-1.5">
                       <Hash className="size-3.5" />设备地址
                     </span>
                     <span className="font-black text-[#111827] text-xs">{node.address}</span>

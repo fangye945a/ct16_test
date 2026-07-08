@@ -141,6 +141,7 @@ export interface IDeviceNode {
   status: 'normal' | 'warning' | 'offline'
   value: string
   unit: string
+  serialNumber: string
   address: string
   description: string
   location: string
@@ -160,20 +161,20 @@ export interface IDeviceLink {
 
 export const MOCK_DEVICE_NODES: IDeviceNode[] = [
   // ── 传感器类（3个）── ──
-  { id: 'dev-temp-1', name: '温度传感器', deviceType: '温度传感器', category: 'sensor', interfaceType: 'RS485', interfaceLabel: 'RS485-1', status: 'normal', value: '25.6', unit: '℃', address: 'MODBUS-0x01', description: '车间环境温度监测', location: '车间A区-东墙', lastUpdate: '2秒前', angle: -90, distance: 200, group: 'rs485' },
-  { id: 'dev-humi-1', name: '湿度传感器', deviceType: '湿度传感器', category: 'sensor', interfaceType: 'RS485', interfaceLabel: 'RS485-1', status: 'normal', value: '65', unit: '%RH', address: 'MODBUS-0x04', description: '仓库环境湿度监测', location: '原料仓库-中区', lastUpdate: '3秒前', angle: -50, distance: 205, group: 'rs485' },
-  { id: 'dev-pres-1', name: '压力变送器', deviceType: '压力变送器', category: 'sensor', interfaceType: 'AI', interfaceLabel: 'AI-01', status: 'normal', value: '0.85', unit: 'MPa', address: 'AI-CH01', description: '主管道压力监测', location: '1号生产线-主管道', lastUpdate: '1秒前', angle: -10, distance: 200, group: 'ai' },
+  { id: 'dev-temp-1', name: '温度传感器', deviceType: '温度传感器', category: 'sensor', interfaceType: 'RS485', interfaceLabel: 'RS485-1', status: 'normal', value: '25.6', unit: '℃', serialNumber: 'SN-TEMP-0001', address: 'MODBUS-0x01', description: '车间环境温度监测', location: '车间A区-东墙', lastUpdate: '2秒前', angle: -90, distance: 200, group: 'rs485' },
+  { id: 'dev-humi-1', name: '湿度传感器', deviceType: '湿度传感器', category: 'sensor', interfaceType: 'RS485', interfaceLabel: 'RS485-1', status: 'normal', value: '65', unit: '%RH', serialNumber: 'SN-HUMI-0001', address: 'MODBUS-0x04', description: '仓库环境湿度监测', location: '原料仓库-中区', lastUpdate: '3秒前', angle: -50, distance: 205, group: 'rs485' },
+  { id: 'dev-pres-1', name: '压力变送器', deviceType: '压力变送器', category: 'sensor', interfaceType: 'AI', interfaceLabel: 'AI-01', status: 'normal', value: '0.85', unit: 'MPa', serialNumber: 'SN-PRES-0001', address: 'AI-CH01', description: '主管道压力监测', location: '1号生产线-主管道', lastUpdate: '1秒前', angle: -10, distance: 200, group: 'ai' },
 
   // ── 执行器类（3个）── ──
-  { id: 'dev-fan-1', name: '风机', deviceType: '风机', category: 'actuator', interfaceType: 'DO', interfaceLabel: 'DO-01', status: 'normal', value: '运行中', unit: '', address: 'DO-CH01', description: '车间通风主风机', location: '车间A区-屋顶', lastUpdate: '1秒前', angle: 50, distance: 200, group: 'do' },
-  { id: 'dev-valve-1', name: '调节阀', deviceType: '电动调节阀', category: 'actuator', interfaceType: 'AO', interfaceLabel: 'AO-01', status: 'normal', value: '45', unit: '%', address: 'AO-CH01', description: '冷却水流量调节阀', location: '冷却系统-进水口', lastUpdate: '3秒前', angle: 110, distance: 200, group: 'ao' },
-  { id: 'dev-light-1', name: '交通信号灯', deviceType: '信号灯', category: 'actuator', interfaceType: 'DO', interfaceLabel: 'DO组-01', status: 'normal', value: '绿灯亮', unit: '', address: 'DO-CH04-06', description: '车间通道交通指示', location: '车间通道-交叉口', lastUpdate: '1秒前', angle: 170, distance: 205, group: 'do' },
+  { id: 'dev-fan-1', name: '风机', deviceType: '风机', category: 'actuator', interfaceType: 'DO', interfaceLabel: 'DO-01', status: 'normal', value: '运行中', unit: '', serialNumber: 'SN-FAN-0001', address: 'DO-CH01', description: '车间通风主风机', location: '车间A区-屋顶', lastUpdate: '1秒前', angle: 50, distance: 200, group: 'do' },
+  { id: 'dev-valve-1', name: '调节阀', deviceType: '电动调节阀', category: 'actuator', interfaceType: 'AO', interfaceLabel: 'AO-01', status: 'normal', value: '45', unit: '%', serialNumber: 'SN-VALVE-0001', address: 'AO-CH01', description: '冷却水流量调节阀', location: '冷却系统-进水口', lastUpdate: '3秒前', angle: 110, distance: 200, group: 'ao' },
+  { id: 'dev-light-1', name: '交通信号灯', deviceType: '信号灯', category: 'actuator', interfaceType: 'DO', interfaceLabel: 'DO组-01', status: 'normal', value: '绿灯亮', unit: '', serialNumber: 'SN-LIGHT-0001', address: 'DO-CH04-06', description: '车间通道交通指示', location: '车间通道-交叉口', lastUpdate: '1秒前', angle: 170, distance: 205, group: 'do' },
 
   // ── 输入设备类（1个）── ──
-  { id: 'dev-btn-1', name: '按钮', deviceType: '按钮开关', category: 'input', interfaceType: 'DI', interfaceLabel: 'DI-01', status: 'normal', value: '未按下', unit: '', address: 'DI-CH01', description: '急停按钮（主回路）', location: '1号生产线-操作台', lastUpdate: '1秒前', angle: 230, distance: 200, group: 'di' },
+  { id: 'dev-btn-1', name: '按钮', deviceType: '按钮开关', category: 'input', interfaceType: 'DI', interfaceLabel: 'DI-01', status: 'normal', value: '未按下', unit: '', serialNumber: 'SN-BTN-0001', address: 'DI-CH01', description: '急停按钮（主回路）', location: '1号生产线-操作台', lastUpdate: '1秒前', angle: 230, distance: 200, group: 'di' },
 
   // ── 其他设备（1个）── ──
-  { id: 'dev-plc-1', name: '小型PLC', deviceType: 'PLC控制器', category: 'other', interfaceType: 'ETH', interfaceLabel: 'ETH', status: 'normal', value: '在线', unit: '', address: '192.168.1.50', description: '辅助产线逻辑控制', location: '2号生产线-控制柜', lastUpdate: '1秒前', angle: 290, distance: 200, group: 'eth' },
+  { id: 'dev-plc-1', name: '小型PLC', deviceType: 'PLC控制器', category: 'other', interfaceType: 'ETH', interfaceLabel: 'ETH', status: 'normal', value: '在线', unit: '', serialNumber: 'SN-PLC-0001', address: '192.168.1.50', description: '辅助产线逻辑控制', location: '2号生产线-控制柜', lastUpdate: '1秒前', angle: 290, distance: 200, group: 'eth' },
 ];
 
 export const MOCK_DEVICE_LINKS: IDeviceLink[] = MOCK_DEVICE_NODES.map((node) => ({

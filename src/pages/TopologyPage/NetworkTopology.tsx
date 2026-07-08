@@ -7,12 +7,11 @@ import {
   Home,
   Wifi,
   WifiOff,
-  Zap,
   Users,
   Gauge,
   Activity,
 } from 'lucide-react';
-import { MOCK_NETWORK_DEVICES, MOCK_NETWORK_LINKS, type INetworkDevice } from '@/data/topology';
+import { MOCK_NETWORK_DEVICES, type INetworkDevice } from '@/data/topology';
 
 // ── 设备图标（不同型号不同形状）──────────────────────────────────
 
@@ -292,11 +291,6 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
       {/* ── 总线信息面板 ── */}
       <div className="absolute top-4 left-4 z-20 flex items-center gap-3 px-4 py-2.5 bg-white/90 backdrop-blur-sm rounded-2xl border border-[#F3F4F6] shadow-sm">
         <div className="flex items-center gap-1.5">
-          <Zap className="size-3.5 text-[#00B894]" />
-          <span className="text-[10px] font-black text-[#111827] uppercase tracking-wider">分布式软总线</span>
-        </div>
-        <span className="w-px h-4 bg-[#F3F4F6]" />
-        <div className="flex items-center gap-1.5">
           <Users className="size-3 text-[#9CA3AF]" />
           <span className="text-[10px] font-black text-[#9CA3AF]">
             <span className="text-[#00B894]">{onlineCount}</span>/{totalCount} 在线
@@ -359,7 +353,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
             />
 
             {/* 总线标签 */}
-            <rect x="calc(50% - 70px)" y="calc(50% - 12px)" width="140" height="24" rx="12" fill="white" stroke="#00B894" strokeWidth="1" opacity="0.9" />
+            <rect x="calc(50% - 88px)" y="calc(50% - 14px)" width="176" height="28" rx="14" fill="white" stroke="#00B894" strokeWidth="1" opacity="0.92" />
             <text
               x="50%"
               y="calc(50% + 5px)"
@@ -370,7 +364,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
               fontFamily="'Plus Jakarta Sans', sans-serif"
               letterSpacing="0.1em"
             >
-              分布式软总线
+              在鸿轻量软总线
             </text>
 
             {/* 设备连接线 */}
