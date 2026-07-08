@@ -74,7 +74,6 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-xl font-black text-foreground">在鸿设备管理系统</h1>
-          <p className="text-sm text-muted-foreground mt-1">CT16 · OpenHarmony</p>
         </div>
 
         <Card className="border-border/40 bg-card/60 shadow-sm">

@@ -86,9 +86,8 @@ export default function AppSidebar() {
           <div className="size-8 shrink-0 rounded-md bg-primary text-primary-foreground flex items-center justify-center">
             <LogoIcon type={logoType} />
           </div>
-          <div className="flex-1 min-w-0 group-data-[state=collapsed]:hidden">
+          <div className="flex-1 min-w-0 self-center group-data-[state=collapsed]:hidden">
             <div className="text-sm font-semibold truncate">{systemName}</div>
-            <div className="text-xs text-muted-foreground">CT16 · OpenHarmony</div>
           </div>
         </div>
       </SidebarHeader>
