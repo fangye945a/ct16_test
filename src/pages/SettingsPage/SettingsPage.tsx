@@ -21,7 +21,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  Globe,
   Clock,
   Shield,
   Server,
@@ -45,13 +44,11 @@ import {
   Upload,
 } from 'lucide-react';
 import {
-  MOCK_NETWORK_SETTINGS,
   MOCK_TIME_SETTINGS,
   MOCK_SECURITY_SETTINGS,
   MOCK_SERVICES,
   MOCK_WIRELESS_SLOT_SETTINGS,
   MOCK_NETWORK_INTERFACE_SETTINGS,
-  type INetworkSettings,
   type ITimeSettings,
   type ISecuritySettings,
   type IServiceItem,
@@ -265,7 +262,6 @@ function NetworkInterfaceCard({
 }
 
 export default function SettingsPage() {
-  const [network, setNetwork] = useState<INetworkSettings>({ ...MOCK_NETWORK_SETTINGS });
   const [wirelessSlots, setWirelessSlots] = useState<IWirelessSlotSettings>(() => LoadWirelessSlots());
   const [networkInterfaces, setNetworkInterfaces] = useState<INetworkInterfaceSettings>(() => LoadNetworkInterfaces());
   const [time, setTime] = useState<ITimeSettings>({ ...MOCK_TIME_SETTINGS });
@@ -292,7 +288,6 @@ export default function SettingsPage() {
   };
 
   const resetAll = () => {
-    setNetwork({ ...MOCK_NETWORK_SETTINGS });
     setWirelessSlots({ ...MOCK_WIRELESS_SLOT_SETTINGS });
     setNetworkInterfaces({
       ...MOCK_NETWORK_INTERFACE_SETTINGS,
@@ -411,39 +406,6 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Network Settings */}
-      <Card className="border-border/40 bg-card/60">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Globe className="size-4 text-primary" />
-            网络设置
-          </CardTitle>
-          <CardDescription>配置网关设备的网络参数</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              { key: 'ipAddress', label: 'IP 地址' },
-              { key: 'subnetMask', label: '子网掩码' },
-              { key: 'gateway', label: '默认网关' },
-              { key: 'dnsPrimary', label: '首选 DNS' },
-              { key: 'dnsSecondary', label: '备用 DNS' },
-            ].map((field) => (
-              <div key={field.key} className="space-y-1.5">
-                <Label className="text-xs">{field.label}</Label>
-                <Input
-                  value={network[field.key as keyof INetworkSettings]}
-                  onChange={(e) =>
-                    setNetwork((prev) => ({ ...prev, [field.key]: e.target.value }))
-                  }
-                  className="h-9 text-sm"
-                />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Wireless Slot Settings */}
       <Card className="border-border/40 bg-card/60">
         <CardHeader>
@@ -492,7 +454,7 @@ export default function SettingsPage() {
             <Radio className="size-4 text-primary" />
             网卡网络配置
           </CardTitle>
-          <CardDescription>管理两路以太网、4G 和 WIFI 网卡，支持网桥模式用于手拉手布线</CardDescription>
+          <CardDescription>统一管理两路以太网、4G 和 WiFi 网卡参数，作为系统唯一网络配置入口</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -1,12 +1,4 @@
-// EXPORTS: INetworkSettings, ITimeSettings, ISecuritySettings, IServiceItem, IWirelessSlotSettings, INetworkInterfaceSettings, MOCK_NETWORK_SETTINGS, MOCK_TIME_SETTINGS, MOCK_SECURITY_SETTINGS, MOCK_SERVICES, MOCK_WIRELESS_SLOT_SETTINGS, MOCK_NETWORK_INTERFACE_SETTINGS
-
-export interface INetworkSettings {
-  ipAddress: string
-  subnetMask: string
-  gateway: string
-  dnsPrimary: string
-  dnsSecondary: string
-}
+// EXPORTS: ITimeSettings, ISecuritySettings, IServiceItem, IWirelessSlotSettings, INetworkInterfaceSettings, MOCK_TIME_SETTINGS, MOCK_SECURITY_SETTINGS, MOCK_SERVICES, MOCK_WIRELESS_SLOT_SETTINGS, MOCK_NETWORK_INTERFACE_SETTINGS
 
 export type WirelessSlotOneType = 'none' | '4g' | 'wifi'
 export type WirelessSlotTwoType = 'none' | 'ble' | 'slb'
@@ -64,14 +56,6 @@ export interface IServiceItem {
   port: number
   description: string
 }
-
-export const MOCK_NETWORK_SETTINGS: INetworkSettings = {
-  ipAddress: '192.168.1.1',
-  subnetMask: '255.255.255.0',
-  gateway: '192.168.1.254',
-  dnsPrimary: '8.8.8.8',
-  dnsSecondary: '114.114.114.114',
-};
 
 export const MOCK_WIRELESS_SLOT_SETTINGS: IWirelessSlotSettings = {
   slot1: 'wifi',
