@@ -3,10 +3,8 @@ import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -26,7 +24,6 @@ import {
   Cable,
   BadgeCheck,
   Shuffle,
-  Download,
 } from 'lucide-react';
 import { MOCK_IO_MODULE_COUNT, MOCK_MODULE_SLOTS, type IModuleSlot, type IModuleChannel } from '@/data/topology';
 import {
@@ -50,13 +47,20 @@ const ONLINE_STATUS = {
   offline: { dot: 'bg-[#9CA3AF]', text: 'text-[#6B7280]', bg: 'bg-[#F9FAFB]', border: 'border-[#E5E7EB]', label: '离线' },
 };
 
-type SerialDisplayMode = 'hex' | 'text';
+const MAIN_MODULE_LEDS = [
+  { label: 'POW', dot: 'bg-[#FF4444]', flash: false },
+  { label: 'SYS', dot: 'bg-[#00B894]', flash: true },
+  { label: 'NET', dot: 'bg-[#00B894]', flash: true },
+  { label: 'BLE', dot: 'bg-[#3B82F6]', flash: true },
+  { label: 'ERR', dot: 'bg-[#D1D5DB]', flash: false },
+] as const;
 
-type SerialLogEntry = {
-  time: string;
-  hex: string;
-  text: string;
-};
+const MAIN_MODULE_INFO = [
+  { label: '固件版本', value: 'V3.2.1' },
+  { label: '处理器', value: 'RK3506J' },
+  { label: '主频', value: '1.2GHz' },
+  { label: '运行时长', value: '45天' },
+] as const;
 
 type SerialPortState = {
   occupied: boolean;
@@ -66,8 +70,6 @@ type SerialPortState = {
     stopBits: string;
     parity: string;
   } | null;
-  uplink: SerialLogEntry[];
-  downlink: SerialLogEntry[];
 };
 
 const SERIAL_PORT_USAGE: Record<string, Record<string, SerialPortState>> = {
@@ -75,49 +77,23 @@ const SERIAL_PORT_USAGE: Record<string, Record<string, SerialPortState>> = {
     COM1: {
       occupied: true,
       params: { baudRate: '115200', dataBits: '8', stopBits: '1', parity: 'None' },
-      uplink: [
-        { time: '10:24:13.128', hex: '41 54 2B 50 49 4E 47 0D 0A', text: 'AT+PING' },
-        { time: '10:24:15.342', hex: '01 03 00 00 00 02 C4 0B', text: 'Read holding register 0x0000 length 2' },
-      ],
-      downlink: [
-        { time: '10:24:13.214', hex: '4F 4B 0D 0A', text: 'OK' },
-        { time: '10:24:15.410', hex: '01 03 04 00 7B 00 42 8A 31', text: 'Register values: 123, 66' },
-      ],
     },
     COM2: {
       occupied: false,
       params: null,
-      uplink: [],
-      downlink: [],
     },
   },
   'RS485-2CH': {
     COM1: {
       occupied: false,
       params: null,
-      uplink: [],
-      downlink: [],
     },
     COM2: {
       occupied: true,
       params: { baudRate: '9600', dataBits: '8', stopBits: '1', parity: 'Even' },
-      uplink: [
-        { time: '11:08:02.036', hex: '02 04 00 10 00 02 70 3C', text: 'Slave 02 read input register 0x0010 length 2' },
-        { time: '11:08:06.512', hex: '02 06 00 20 00 01 49 F0', text: 'Slave 02 write register 0x0020 value 1' },
-      ],
-      downlink: [
-        { time: '11:08:02.104', hex: '02 04 04 01 2C 00 64 7B 92', text: 'Input values: 300, 100' },
-        { time: '11:08:06.580', hex: '02 06 00 20 00 01 49 F0', text: 'Write acknowledged' },
-      ],
     },
   },
 };
-
-const NMEA_RAW_MESSAGES = [
-  '$GNRMC,024813.00,A,2811.6454,N,11258.9368,E,0.018,,080726,,,A*6C',
-  '$GNGGA,024813.00,2811.6454,N,11258.9368,E,1,18,0.8,68.2,M,-12.1,M,,*52',
-  '$GNGSA,A,3,03,08,10,14,18,21,24,26,29,31,32,36,1.2,0.8,0.9*33',
-];
 
 const WIRELESS_STORAGE_KEY = 'zaihong:wirelessSlots';
 const NETWORK_STORAGE_KEY = 'zaihong:networkInterfaces';
@@ -162,19 +138,7 @@ function GetSerialPortState(model: string, channelLabel: string) {
   return SERIAL_PORT_USAGE[model]?.[channelLabel] || {
     occupied: false,
     params: null,
-    uplink: [],
-    downlink: [],
   };
-}
-
-function DownloadTextFile(filename: string, content: string) {
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 function LoadWirelessSlots(): IWirelessSlotSettings {
@@ -463,61 +427,9 @@ function AOControlPanel({ slot }: { slot: IModuleSlot }) {
   );
 }
 
-// Serial Module Control Panel
-function SerialDataList({
-  title,
-  entries,
-  mode,
-}: {
-  title: string;
-  entries: SerialLogEntry[];
-  mode: SerialDisplayMode;
-}) {
-  return (
-    <div className="rounded-2xl border border-[#F3F4F6] bg-white p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="text-[10px] font-black text-[#111827]">{title}</div>
-        <Badge variant="outline" className="rounded-full border-[#00B894]/20 bg-[#00B894]/10 px-2 py-0 text-[8px] font-black text-[#00B894]">
-          {entries.length} 条
-        </Badge>
-      </div>
-      <div className="h-44 overflow-y-auto rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-2 font-mono text-[10px] leading-5">
-        {entries.length === 0 ? (
-          <div className="flex h-full items-center justify-center font-sans text-[10px] font-bold text-[#9CA3AF]">暂无数据</div>
-        ) : (
-          entries.map((entry, index) => (
-            <div key={`${entry.time}-${index}`} className="mb-1 rounded-lg bg-white px-2 py-1 text-[#111827]">
-              <span className="mr-2 text-[#9CA3AF]">{entry.time}</span>
-              <span className="text-[#047857]">{mode === 'hex' ? entry.hex : entry.text}</span>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
 function SerialControlPanel({ slot }: { slot: IModuleSlot }) {
   const [activeChannel, setActiveChannel] = useState(slot.channelList[0]?.label || 'COM1');
-  const [displayMode, setDisplayMode] = useState<SerialDisplayMode>('hex');
   const activePort = GetSerialPortState(slot.model, activeChannel);
-
-  const handleExport = () => {
-    const lines = [
-      `${slot.model} ${activeChannel} 串口数据`,
-      `导出时间: ${new Date().toLocaleString('zh-CN', { hour12: false })}`,
-      `显示模式: ${displayMode === 'hex' ? 'HEX' : '字符串'}`,
-      '',
-      '[上行 外部->设备]',
-      ...activePort.uplink.map((entry) => `${entry.time} ${displayMode === 'hex' ? entry.hex : entry.text}`),
-      '',
-      '[下行 设备->外部]',
-      ...activePort.downlink.map((entry) => `${entry.time} ${displayMode === 'hex' ? entry.hex : entry.text}`),
-      '',
-    ];
-    DownloadTextFile(`serial_${slot.model}_${activeChannel}_${new Date().toISOString().slice(0, 10)}.log`, lines.join('\n'));
-    toast.success('串口数据已导出');
-  };
 
   return (
     <motion.div
@@ -526,86 +438,47 @@ function SerialControlPanel({ slot }: { slot: IModuleSlot }) {
       exit={{ opacity: 0, y: 20 }}
       className="bg-white rounded-[32px] border border-[#F3F4F6] shadow-lg p-6"
     >
-      <ModulePanelHeader slot={slot} title={`${slot.model} 接口调试`} subtitle={slot.spec} />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="space-y-3">
-          <div className="rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] p-4">
-            <div className="mb-3 flex flex-wrap gap-2">
-              {slot.channelList.map((ch) => {
-                const port = GetSerialPortState(slot.model, ch.label);
-                return (
-                  <button
-                    key={ch.index}
-                    onClick={() => setActiveChannel(ch.label)}
-                    className={`rounded-full border px-3 py-1 text-[10px] font-black transition-colors ${
-                      activeChannel === ch.label
-                        ? 'border-[#00B894]/40 bg-[#00B894]/10 text-[#00B894]'
-                        : 'border-[#E5E7EB] bg-white text-[#9CA3AF]'
-                    }`}
-                  >
-                    {ch.label} · {port.occupied ? '占用中' : '未占用'}
-                  </button>
-                );
-              })}
-            </div>
-            {activePort.occupied && activePort.params ? (
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: '波特率', value: activePort.params.baudRate },
-                  { label: '数据位', value: activePort.params.dataBits },
-                  { label: '停止位', value: activePort.params.stopBits },
-                  { label: '校验位', value: activePort.params.parity },
-                ].map((item) => (
-                  <div key={item.label} className="rounded-xl bg-white px-3 py-2">
-                    <div className="text-[10px] font-bold text-[#9CA3AF]">{item.label}</div>
-                    <div className="mt-1 text-sm font-black text-[#111827] tabular-nums">{item.value}</div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-[#E5E7EB] bg-white p-6 text-center">
-                <div className="text-sm font-black text-[#111827]">{activeChannel} 未占用</div>
-                <div className="mt-1 text-[10px] font-bold text-[#9CA3AF]">当前端口无业务绑定，暂无串口参数和调试数据。</div>
-              </div>
-            )}
-          </div>
-        </div>
-
+      <ModulePanelHeader slot={slot} title={`${slot.model} 端口状态`} subtitle={slot.spec} />
+      <div className="space-y-3">
         <div className="rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <div className="text-xs font-black text-[#111827]">{activeChannel} 数据监视</div>
-              <div className="mt-0.5 text-[10px] font-bold text-[#9CA3AF]">上行/下行数据带时间戳显示</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="rounded-full border border-[#E5E7EB] bg-white p-0.5">
-                {(['hex', 'text'] as SerialDisplayMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => setDisplayMode(mode)}
-                    className={`rounded-full px-2.5 py-1 text-[9px] font-black transition-colors ${
-                      displayMode === mode ? 'bg-[#00B894] text-white' : 'text-[#9CA3AF]'
-                    }`}
-                  >
-                    {mode === 'hex' ? 'HEX' : '字符串'}
-                  </button>
-                ))}
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleExport}
-                className="h-8 gap-1.5 rounded-full border-[#00B894]/30 text-[10px] font-black text-[#00B894] hover:bg-[#00B894]/10"
-              >
-                <Download className="size-3" />
-                导出
-              </Button>
-            </div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {slot.channelList.map((ch) => {
+              const port = GetSerialPortState(slot.model, ch.label);
+              return (
+                <button
+                  key={ch.index}
+                  onClick={() => setActiveChannel(ch.label)}
+                  className={`rounded-full border px-3 py-1 text-[10px] font-black transition-colors ${
+                    activeChannel === ch.label
+                      ? 'border-[#00B894]/40 bg-[#00B894]/10 text-[#00B894]'
+                      : 'border-[#E5E7EB] bg-white text-[#9CA3AF]'
+                  }`}
+                >
+                  {ch.label} · {port.occupied ? '使用中' : '未使用'}
+                </button>
+              );
+            })}
           </div>
-          <div className="grid grid-cols-1 gap-3">
-            <SerialDataList title="上行 外部->设备" entries={activePort.uplink} mode={displayMode} />
-            <SerialDataList title="下行 设备->外部" entries={activePort.downlink} mode={displayMode} />
-          </div>
+          {activePort.occupied && activePort.params ? (
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: '波特率', value: activePort.params.baudRate },
+                { label: '数据位', value: activePort.params.dataBits },
+                { label: '停止位', value: activePort.params.stopBits },
+                { label: '校验位', value: activePort.params.parity },
+              ].map((item) => (
+                <div key={item.label} className="rounded-xl bg-white px-3 py-2">
+                  <div className="text-[10px] font-bold text-[#9CA3AF]">{item.label}</div>
+                  <div className="mt-1 text-sm font-black text-[#111827] tabular-nums">{item.value}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-[#E5E7EB] bg-white p-6 text-center">
+              <div className="text-sm font-black text-[#111827]">{activeChannel} 未使用</div>
+              <div className="mt-1 text-[10px] font-bold text-[#9CA3AF]">当前端口无业务绑定，暂无串口参数。</div>
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
@@ -622,48 +495,30 @@ function NMEAControlPanel({ slot }: { slot: IModuleSlot }) {
       className="bg-white rounded-[32px] border border-[#F3F4F6] shadow-lg p-6"
     >
       <ModulePanelHeader slot={slot} title={`${slot.model} 定位状态`} subtitle="1路 RS232 NMEA 定位接口" />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className={`size-2.5 rounded-full ${fixed ? 'bg-[#00B894] animate-pulse' : 'bg-[#F97316]'}`} />
-              <span className="text-sm font-black text-[#111827]">{fixed ? '定位成功' : '未定位'}</span>
-            </div>
-            <Badge className={`rounded-full text-[9px] font-black ${fixed ? 'bg-[#00B894]/10 text-[#00B894] border-[#00B894]/20' : 'bg-[#F97316]/10 text-[#F97316] border-[#F97316]/20'}`}>
-              {slot.channelList[0]?.label || 'RS232'}
-            </Badge>
+      <div className="rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className={`size-2.5 rounded-full ${fixed ? 'bg-[#00B894] animate-pulse' : 'bg-[#F97316]'}`} />
+            <span className="text-sm font-black text-[#111827]">{fixed ? '定位成功' : '未定位'}</span>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-[10px]">
-            <div className="rounded-xl bg-white p-3">
-              <div className="font-bold text-[#9CA3AF]">波特率</div>
-              <div className="font-black text-[#111827]">{slot.channelList[0]?.value || '4800bps'}</div>
-            </div>
-            <div className="rounded-xl bg-white p-3">
-              <div className="font-bold text-[#9CA3AF]">协议</div>
-              <div className="font-black text-[#111827]">NMEA 0183</div>
-            </div>
-            <div className="rounded-xl bg-white p-3">
-              <div className="font-bold text-[#9CA3AF]">纬度</div>
-              <div className="font-black text-[#111827]">{fixed ? '28.19409 N' : '--'}</div>
-            </div>
-            <div className="rounded-xl bg-white p-3">
-              <div className="font-bold text-[#9CA3AF]">经度</div>
-              <div className="font-black text-[#111827]">{fixed ? '112.98228 E' : '--'}</div>
-            </div>
-          </div>
+          <Badge className={`rounded-full text-[9px] font-black ${fixed ? 'bg-[#00B894]/10 text-[#00B894] border-[#00B894]/20' : 'bg-[#F97316]/10 text-[#F97316] border-[#F97316]/20'}`}>
+            {slot.channelList[0]?.label || 'RS232'}
+          </Badge>
         </div>
-        <div className="rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="text-xs font-black text-[#111827]">NMEA 原始报文</div>
-            <Badge variant="outline" className="rounded-full border-[#00B894]/20 bg-[#00B894]/10 px-2 py-0 text-[9px] font-black text-[#00B894]">
-              实时
-            </Badge>
-          </div>
-          <div className="h-52 overflow-y-auto rounded-xl border border-[#E5E7EB] bg-white p-3 font-mono text-[10px] leading-5 text-[#047857]">
-            {NMEA_RAW_MESSAGES.map((message) => (
-              <div key={message} className="mb-1 rounded-lg bg-[#F9FAFB] px-2 py-1">{message}</div>
-            ))}
-          </div>
+        <div className="grid grid-cols-2 gap-2 text-[10px]">
+          {[
+            { label: '波特率', value: slot.channelList[0]?.value || '4800bps' },
+            { label: '数据位', value: '8' },
+            { label: '停止位', value: '1' },
+            { label: '校验位', value: 'None' },
+            { label: '纬度', value: fixed ? '28.19409 N' : '--' },
+            { label: '经度', value: fixed ? '112.98228 E' : '--' },
+          ].map((item) => (
+            <div key={item.label} className="rounded-xl bg-white p-3">
+              <div className="font-bold text-[#9CA3AF]">{item.label}</div>
+              <div className="font-black text-[#111827]">{item.value}</div>
+            </div>
+          ))}
         </div>
       </div>
     </motion.div>
@@ -677,6 +532,16 @@ type WirelessOption = { key: string; label: string; icon: React.ComponentType<{ 
 const WIRELESS_MAC_ADDRESS: Record<'ble' | 'slb', string> = {
   ble: '8C:5A:F8:16:2B:41',
   slb: '70:4D:7B:88:31:AC',
+};
+
+const WIRELESS_SIGNAL_STRENGTH: Record<'4g' | 'wifi', string> = {
+  '4g': '-73 dBm',
+  wifi: '-48 dBm',
+};
+
+const WIRELESS_BROADCAST_NAME: Record<'ble' | 'slb', string> = {
+  ble: 'CT16-BLE-Gateway',
+  slb: 'CT16-SLB-Gateway',
 };
 
 const SLOT1_OPTIONS: WirelessOption[] = [
@@ -711,6 +576,12 @@ function WirelessSlotCard({
     : selected.key === 'ble' || selected.key === 'slb'
       ? WIRELESS_MAC_ADDRESS[selected.key]
       : '--';
+  const extraLabel = selected.key === '4g' || selected.key === 'wifi' ? '信号强度' : '广播名称';
+  const extraValue = selected.key === '4g' || selected.key === 'wifi'
+    ? WIRELESS_SIGNAL_STRENGTH[selected.key]
+    : selected.key === 'ble' || selected.key === 'slb'
+      ? WIRELESS_BROADCAST_NAME[selected.key]
+      : '--';
 
   return (
     <div
@@ -742,16 +613,22 @@ function WirelessSlotCard({
         </div>
         {!isNone && (
           <div className="rounded-xl border border-white/80 bg-white px-3 py-2">
-            <div className="text-[9px] font-bold text-[#9CA3AF]">{detailLabel}</div>
-            <div className="mt-1 flex items-center gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="shrink-0 text-[9px] font-bold text-[#9CA3AF]">{detailLabel}</span>
+                <span className="min-w-0 truncate text-[10px] font-black text-[#111827]">{detailValue}</span>
+              </div>
               <Badge
                 variant="outline"
-                className="rounded-full px-2 py-0"
+                className="shrink-0 rounded-full px-2 py-0"
                 style={{ color: selected.color, borderColor: `${selected.color}30`, backgroundColor: `${selected.color}08` }}
               >
                 运行中
               </Badge>
-              <span className="min-w-0 truncate text-[10px] font-black text-[#111827]">{detailValue}</span>
+            </div>
+            <div className="mt-1 flex min-w-0 items-center gap-2">
+              <span className="shrink-0 text-[9px] font-bold text-[#9CA3AF]">{extraLabel}</span>
+              <span className="min-w-0 truncate text-[10px] font-black text-[#111827]">{extraValue}</span>
             </div>
           </div>
         )}
@@ -813,50 +690,35 @@ function MainControlUnit() {
       </div>
 
       <div className="rounded-[32px] border border-[#F3F4F6] bg-[#F9FAFB] p-4">
-        <div className="flex items-center gap-3 mb-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
           <div className="size-10 rounded-2xl bg-[#00B894]/10 flex items-center justify-center shrink-0">
             <Cpu className="size-5 text-[#00B894]" />
           </div>
-          <div>
+            <div className="min-w-0">
             <div className="text-sm font-black text-[#111827]">CT16 在鸿控制器</div>
+              <div className="mt-0.5 text-[10px] font-bold text-[#9CA3AF]">主控单元</div>
+            </div>
           </div>
-        </div>
-
-        <div className="flex items-center gap-3 mb-3">
-          {[
-            { label: 'POW', status: 'normal' as const },
-            { label: 'SYS', status: 'normal' as const },
-            { label: 'NET', status: 'normal' as const },
-            { label: 'BLE', status: 'normal' as const },
-            { label: 'ERR', status: 'off' as const },
-          ].map((led) => {
-            const sc = STATUS_COLORS[led.status];
+          <div className="flex items-center gap-2">
+            {MAIN_MODULE_LEDS.map((led) => {
             return (
-              <div key={led.label} className="flex flex-col items-center gap-1">
-                <span className={`size-2.5 rounded-full ${sc.dot} ${led.status === 'normal' ? 'animate-pulse' : ''}`} />
+                <div key={led.label} className="flex flex-col items-center gap-1">
+                  <span className={`size-2.5 rounded-full ${led.dot} ${led.flash ? 'animate-pulse' : ''}`} />
                 <span className="text-[8px] font-black text-[#9CA3AF]">{led.label}</span>
               </div>
             );
           })}
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mb-3 text-[10px]">
-          <div className="rounded-xl bg-white px-2.5 py-2">
-            <div className="font-bold text-[#9CA3AF]">固件版本</div>
-            <div className="font-black text-[#111827] tabular-nums">V3.2.1</div>
-          </div>
-          <div className="rounded-xl bg-white px-2.5 py-2">
-            <div className="font-bold text-[#9CA3AF]">处理器</div>
-            <div className="font-black text-[#111827]">RK3506J</div>
-          </div>
-          <div className="rounded-xl bg-white px-2.5 py-2">
-            <div className="font-bold text-[#9CA3AF]">主频</div>
-            <div className="font-black text-[#111827]">1.2GHz</div>
-          </div>
-          <div className="rounded-xl bg-white px-2.5 py-2">
-            <div className="font-bold text-[#9CA3AF]">运行时长</div>
-            <div className="font-black text-[#111827]">45天</div>
-          </div>
+        <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl bg-white px-3 py-2 text-[10px]">
+          {MAIN_MODULE_INFO.map((item) => (
+            <div key={item.label} className="flex items-center gap-1.5">
+              <span className="shrink-0 font-bold text-[#9CA3AF]">{item.label}</span>
+              <span className="font-black text-[#111827] tabular-nums">{item.value}</span>
+            </div>
+          ))}
         </div>
 
         <div className="space-y-1.5">
@@ -959,7 +821,7 @@ function IOModuleCard({
                       <span className={`size-1.5 rounded-full ${port.occupied ? 'bg-[#00B894]' : 'bg-[#9CA3AF]'}`} />
                       <span className="text-[9px] font-bold text-[#9CA3AF]">{ch.label}</span>
                       <span className={`ml-auto text-[9px] font-black ${port.occupied ? 'text-[#00B894]' : 'text-[#6B7280]'}`}>
-                        {port.occupied ? '占用中' : '未占用'}
+                        {port.occupied ? '使用中' : '未使用'}
                       </span>
                     </div>
                   );

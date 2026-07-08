@@ -218,6 +218,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  const busYPct = 54;
 
   const master = MOCK_NETWORK_DEVICES.find((d) => d.role === 'master')!;
   const slaves = MOCK_NETWORK_DEVICES.filter((d) => d.role === 'slave');
@@ -225,23 +226,64 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
   // 所有设备按顺序排列（master 在中间偏左位置）
   const orderedDevices = [master, ...slaves];
   const deviceXPct = orderedDevices.map((_, i) => 10 + (i / (orderedDevices.length - 1)) * 80);
+  const deviceLayout = orderedDevices.map((device, i) => {
+    const isAbove = i % 2 === 0;
+    return {
+      device,
+      xPct: deviceXPct[i],
+      isAbove,
+      nodeYPct: isAbove ? 32 : 76,
+      cardTopPct: isAbove ? 26 : 70,
+      latencyYPct: isAbove ? busYPct - 8 : busYPct + 16,
+    };
+  });
   const onlineCount = orderedDevices.filter((d) => d.status === 'online').length;
   const totalCount = orderedDevices.length;
-  const busFlowSegments = orderedDevices.slice(0, -1).flatMap((device, index) => {
-    const nextDevice = orderedDevices[index + 1];
-    if (device.status !== 'online' || nextDevice.status !== 'online') {
-      return [];
-    }
+  const masterLayout = deviceLayout.find((item) => item.device.role === 'master')!;
+  const connectionFlowSpecs = deviceLayout
+    .filter((item) => item.device.role === 'slave')
+    .flatMap((item, index) => {
+      if (masterLayout.device.status !== 'online' || item.device.status !== 'online') {
+        return [];
+      }
 
-    const start = deviceXPct[index];
-    const end = deviceXPct[index + 1];
-    return Array.from({ length: 2 }, (_, flowIndex) => ({
-      key: `${device.id}-${nextDevice.id}-${flowIndex}`,
-      start,
-      end,
-      duration: 2.8 + ((index + flowIndex) % 3) * 0.45,
-      delay: flowIndex * 0.9 + index * 0.35,
-    }));
+      return [
+        {
+          key: `${item.device.id}-downlink`,
+          direction: 'downlink' as const,
+          startX: masterLayout.xPct,
+          startY: masterLayout.nodeYPct,
+          busY: busYPct,
+          endX: item.xPct,
+          endY: item.nodeYPct,
+          duration: 3.2 + (index % 3) * 0.35,
+          delay: index * 0.32,
+          dotFill: '#8CF9FF',
+          glowFill: '#00D4FF',
+        },
+        {
+          key: `${item.device.id}-uplink`,
+          direction: 'uplink' as const,
+          startX: item.xPct,
+          startY: item.nodeYPct,
+          busY: busYPct,
+          endX: masterLayout.xPct,
+          endY: masterLayout.nodeYPct,
+          duration: 3.55 + (index % 3) * 0.4,
+          delay: 0.6 + index * 0.36,
+          dotFill: '#B8FFCF',
+          glowFill: '#00B894',
+        },
+      ];
+    });
+  const horizontalBusSegments = deviceLayout.slice(0, -1).map((item, index) => {
+    const nextItem = deviceLayout[index + 1];
+    return {
+      key: `${item.device.id}-${nextItem.device.id}`,
+      startX: item.xPct,
+      endX: nextItem.xPct,
+      active: item.device.status === 'online' && nextItem.device.status === 'online',
+    };
   });
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -351,9 +393,9 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
             {/* 水平总线 */}
             <line
               x1="5%"
-              y1="50%"
+              y1={`${busYPct}%`}
               x2="95%"
-              y2="50%"
+              y2={`${busYPct}%`}
               stroke="#00B894"
               strokeWidth="6"
               strokeLinecap="round"
@@ -362,15 +404,28 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
             {/* 总线光晕 */}
             <line
               x1="5%"
-              y1="50%"
+              y1={`${busYPct}%`}
               x2="95%"
-              y2="50%"
+              y2={`${busYPct}%`}
               stroke="#00B894"
               strokeWidth="14"
               strokeLinecap="round"
               opacity="0.12"
             />
-            {busFlowSegments.map((segment) => (
+            {horizontalBusSegments.map((segment) => (
+              <line
+                key={segment.key}
+                x1={`${segment.startX}%`}
+                y1={`${busYPct}%`}
+                x2={`${segment.endX}%`}
+                y2={`${busYPct}%`}
+                stroke={segment.active ? '#00B894' : '#D1D5DB'}
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                opacity={segment.active ? 0.35 : 0.18}
+              />
+            ))}
+            {connectionFlowSpecs.map((segment) => (
               <motion.g
                 key={segment.key}
                 initial={{ opacity: 0 }}
@@ -384,10 +439,12 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
                 }}
               >
                 <motion.circle
-                  cy="50%"
                   r="3.5"
-                  fill="#C8FFF0"
-                  animate={{ cx: [`${segment.start}%`, `${segment.end}%`] }}
+                  fill={segment.dotFill}
+                  animate={{
+                    cx: [`${segment.startX}%`, `${segment.startX}%`, `${segment.endX}%`, `${segment.endX}%`],
+                    cy: [`${segment.startY}%`, `${segment.busY}%`, `${segment.busY}%`, `${segment.endY}%`],
+                  }}
                   transition={{
                     duration: segment.duration,
                     delay: segment.delay,
@@ -397,11 +454,13 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
                   }}
                 />
                 <motion.circle
-                  cy="50%"
                   r="8"
-                  fill="#00B894"
+                  fill={segment.glowFill}
                   opacity={0.14}
-                  animate={{ cx: [`${segment.start}%`, `${segment.end}%`] }}
+                  animate={{
+                    cx: [`${segment.startX}%`, `${segment.startX}%`, `${segment.endX}%`, `${segment.endX}%`],
+                    cy: [`${segment.startY}%`, `${segment.busY}%`, `${segment.busY}%`, `${segment.endY}%`],
+                  }}
                   transition={{
                     duration: segment.duration,
                     delay: segment.delay,
@@ -414,13 +473,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
             ))}
 
             {/* 设备连接线 */}
-            {orderedDevices.map((device, i) => {
-              const xPct = deviceXPct[i];
-              // 交替上下排列
-              const isAbove = i % 2 === 0;
-              const yBus = 50; // 总线 Y 位置（百分比）
-              const yDevice = isAbove ? 28 : 72;
-
+            {deviceLayout.map(({ device, xPct, isAbove, nodeYPct, latencyYPct }) => {
               const isOnline = device.status === 'online';
               const isMaster = device.role === 'master';
               const lineColor = isOnline ? '#00B894' : '#D1D5DB';
@@ -431,9 +484,9 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
                   {/* 垂直连接线 */}
                   <line
                     x1={`${xPct}%`}
-                    y1={`${yBus}%`}
+                    y1={`${busYPct}%`}
                     x2={`${xPct}%`}
-                    y2={`${yDevice}%`}
+                    y2={`${nodeYPct}%`}
                     stroke={lineColor}
                     strokeWidth={isMaster ? 2.5 : 1.5}
                     strokeLinecap="round"
@@ -442,7 +495,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
                   {/* 连接点 */}
                   <circle
                     cx={`${xPct}%`}
-                    cy={`${yBus}%`}
+                    cy={`${busYPct}%`}
                     r={isMaster ? 5 : 3.5}
                     fill="white"
                     stroke={lineColor}
@@ -450,7 +503,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
                   />
                   <circle
                     cx={`${xPct}%`}
-                    cy={`${yBus}%`}
+                    cy={`${busYPct}%`}
                     r={isMaster ? 2.5 : 1.5}
                     fill={lineColor}
                     className={isOnline ? 'animate-pulse' : ''}
@@ -459,7 +512,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
                   {isOnline && device.latency > 0 && (
                     <text
                       x={`${xPct}%`}
-                      y={isAbove ? `${yBus - 8}%` : `${yBus + 16}%`}
+                      y={`${latencyYPct}%`}
                       textAnchor="middle"
                       fill="#9CA3AF"
                       fontSize="8"
@@ -475,10 +528,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
           </svg>
 
           {/* ── 设备节点 ── */}
-          {orderedDevices.map((device, i) => {
-            const total = orderedDevices.length;
-            const xPct = 10 + (i / (total - 1)) * 80;
-            const isAbove = i % 2 === 0;
+          {deviceLayout.map(({ device, xPct, isAbove, cardTopPct }, i) => {
             const isMaster = device.role === 'master';
             // 第一个设备（master）同时是本机
             const isLocal = i === 0;
@@ -490,7 +540,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
                 className="absolute"
                 style={{
                   left: `${xPct}%`,
-                  top: isAbove ? '22%' : '66%',
+                  top: `${cardTopPct}%`,
                   transform: 'translate(-50%, -50%)',
                 }}
               >
