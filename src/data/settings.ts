@@ -1,4 +1,4 @@
-// EXPORTS: ITimeSettings, ISecuritySettings, IServiceItem, IWirelessSlotSettings, INetworkInterfaceSettings, MOCK_TIME_SETTINGS, MOCK_SECURITY_SETTINGS, MOCK_SERVICES, MOCK_WIRELESS_SLOT_SETTINGS, MOCK_NETWORK_INTERFACE_SETTINGS
+// EXPORTS: ITimeSettings, ISecuritySettings, IWirelessSlotSettings, INetworkInterfaceSettings, MOCK_TIME_SETTINGS, MOCK_SECURITY_SETTINGS, MOCK_WIRELESS_SLOT_SETTINGS, MOCK_NETWORK_INTERFACE_SETTINGS
 
 export type WirelessSlotOneType = 'none' | '4g' | 'wifi'
 export type WirelessSlotTwoType = 'none' | 'ble' | 'slb'
@@ -47,14 +47,6 @@ export interface ISecuritySettings {
   allowedIps: string[]
   sshEnabled: boolean
   httpsOnly: boolean
-}
-
-export interface IServiceItem {
-  id: string
-  name: string
-  status: 'running' | 'stopped' | 'error'
-  port: number
-  description: string
 }
 
 export const MOCK_WIRELESS_SLOT_SETTINGS: IWirelessSlotSettings = {
@@ -151,12 +143,3 @@ export const MOCK_SECURITY_SETTINGS: ISecuritySettings = {
   sshEnabled: true,
   httpsOnly: true,
 };
-
-export const MOCK_SERVICES: IServiceItem[] = [
-  { id: 'svc-1', name: 'Modbus TCP 服务', status: 'running', port: 502, description: 'Modbus TCP 协议转换与数据采集' },
-  { id: 'svc-2', name: 'MQTT Broker', status: 'running', port: 1883, description: '本地 MQTT 消息代理服务' },
-  { id: 'svc-3', name: 'OPC UA 服务', status: 'running', port: 4840, description: 'OPC UA 服务器，提供标准化数据接口' },
-  { id: 'svc-4', name: '流程编程服务', status: 'running', port: 1880, description: '可视化流程编程引擎' },
-  { id: 'svc-5', name: 'PicoClaw 智能体', status: 'running', port: 9090, description: '端侧 AI 智能体运行环境' },
-  { id: 'svc-6', name: 'SNMP 代理', status: 'stopped', port: 161, description: 'SNMP v2c/v3 网络管理代理' },
-];

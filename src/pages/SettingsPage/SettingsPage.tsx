@@ -23,16 +23,12 @@ import {
 import {
   Clock,
   Shield,
-  Server,
   Save,
   RotateCcw,
   Plus,
   X,
   ToggleRight,
   ToggleLeft,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
   Wifi,
   Radio,
   Network,
@@ -46,24 +42,16 @@ import {
 import {
   MOCK_TIME_SETTINGS,
   MOCK_SECURITY_SETTINGS,
-  MOCK_SERVICES,
   MOCK_WIRELESS_SLOT_SETTINGS,
   MOCK_NETWORK_INTERFACE_SETTINGS,
   type ITimeSettings,
   type ISecuritySettings,
-  type IServiceItem,
   type IWirelessSlotSettings,
   type INetworkInterfaceConfig,
   type INetworkInterfaceSettings,
   type NetworkInterfaceId,
 } from '@/data/settings';
 import { toast } from 'sonner';
-
-const SERVICE_STATUS_CONFIG: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string; label: string }> = {
-  running: { icon: CheckCircle, color: 'text-success', label: '运行中' },
-  stopped: { icon: XCircle, color: 'text-muted-foreground', label: '已停止' },
-  error: { icon: AlertCircle, color: 'text-destructive', label: '异常' },
-};
 
 const PRESET_LOGOS = [
   { key: 'chip', label: '芯片' },
@@ -266,9 +254,9 @@ export default function SettingsPage() {
   const [networkInterfaces, setNetworkInterfaces] = useState<INetworkInterfaceSettings>(() => LoadNetworkInterfaces());
   const [time, setTime] = useState<ITimeSettings>({ ...MOCK_TIME_SETTINGS });
   const [security, setSecurity] = useState<ISecuritySettings>({ ...MOCK_SECURITY_SETTINGS });
-  const [services, setServices] = useState<IServiceItem[]>([...MOCK_SERVICES]);
   const [newIp, setNewIp] = useState('');
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
 
   const [systemName, setSystemName] = useState(() => localStorage.getItem('zaihong:systemName') || '在鸿设备管理系统');
   const [logoType, setLogoType] = useState(() => localStorage.getItem('zaihong:logoType') || 'chip');
@@ -280,11 +268,16 @@ export default function SettingsPage() {
   const [showNewPwd, setShowNewPwd] = useState(false);
 
   const saveAll = () => {
-    localStorage.setItem(WIRELESS_STORAGE_KEY, JSON.stringify(wirelessSlots));
-    localStorage.setItem(NETWORK_STORAGE_KEY, JSON.stringify(networkInterfaces));
-    window.dispatchEvent(new Event('zaihong:wireless-config-changed'));
-    window.dispatchEvent(new Event('zaihong:network-config-changed'));
-    toast.success('所有配置已保存，部分更改将在重启服务后生效。');
+    try {
+      localStorage.setItem(WIRELESS_STORAGE_KEY, JSON.stringify(wirelessSlots));
+      localStorage.setItem(NETWORK_STORAGE_KEY, JSON.stringify(networkInterfaces));
+      window.dispatchEvent(new Event('zaihong:wireless-config-changed'));
+      window.dispatchEvent(new Event('zaihong:network-config-changed'));
+      setShowSaveDialog(false);
+      toast.success('所有配置已保存，部分更改将在重启服务后生效。');
+    } catch {
+      toast.error('配置保存失败，请检查浏览器存储权限后重试。');
+    }
   };
 
   const resetAll = () => {
@@ -299,7 +292,6 @@ export default function SettingsPage() {
     window.dispatchEvent(new Event('zaihong:network-config-changed'));
     setTime({ ...MOCK_TIME_SETTINGS });
     setSecurity({ ...MOCK_SECURITY_SETTINGS });
-    setServices([...MOCK_SERVICES]);
     setShowResetDialog(false);
     toast.success('已恢复默认配置');
   };
@@ -329,20 +321,6 @@ export default function SettingsPage() {
 
   const removeAllowedIp = (ip: string) => {
     setSecurity((prev) => ({ ...prev, allowedIps: prev.allowedIps.filter((i) => i !== ip) }));
-  };
-
-  const toggleService = (id: string) => {
-    setServices((prev) =>
-      prev.map((s) =>
-        s.id === id
-          ? { ...s, status: s.status === 'running' ? ('stopped' as const) : ('running' as const) }
-          : s
-      )
-    );
-    const svc = services.find((s) => s.id === id);
-    if (svc) {
-      toast.success(`${svc.name} 已${svc.status === 'running' ? '停止' : '启动'}`);
-    }
   };
 
   const handleSaveAppearance = () => {
@@ -399,7 +377,7 @@ export default function SettingsPage() {
             <RotateCcw className="size-3.5 mr-1" />
             恢复默认
           </Button>
-          <Button size="sm" onClick={saveAll}>
+          <Button size="sm" onClick={() => setShowSaveDialog(true)}>
             <Save className="size-3.5 mr-1" />
             保存配置
           </Button>
@@ -755,54 +733,28 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Services */}
-      <Card className="border-border/40 bg-card/60">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Server className="size-4 text-primary" />
-            系统服务管理
-          </CardTitle>
-          <CardDescription>管理系统服务的启停状态</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="divide-y divide-border/30">
-            {services.map((svc) => {
-              const cfg = SERVICE_STATUS_CONFIG[svc.status];
-              const Icon = cfg.icon;
-              return (
-                <div key={svc.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`size-8 rounded-lg flex items-center justify-center ${svc.status === 'running' ? 'bg-success/10' : svc.status === 'error' ? 'bg-destructive/10' : 'bg-muted/40'}`}>
-                      <Icon className={`size-4 ${cfg.color}`} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{svc.name}</span>
-                        <Badge variant="outline" className={`text-xs ${cfg.color}`}>
-                          {cfg.label}
-                        </Badge>
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        端口: {svc.port} · {svc.description}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => toggleService(svc.id)}
-                    className="shrink-0 ml-4"
-                  >
-                    {svc.status === 'running' ? (
-                      <ToggleRight className="size-5 text-success" />
-                    ) : (
-                      <ToggleLeft className="size-5 text-muted-foreground" />
-                    )}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Save Confirm Dialog */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent className="border-border/40 bg-card/95">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Save className="size-5 text-primary" />
+              保存配置
+            </DialogTitle>
+            <DialogDescription>
+              确认保存当前所有配置？保存后部分更改将在重启服务后生效。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={saveAll}>
+              确认保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reset Dialog */}
       <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
