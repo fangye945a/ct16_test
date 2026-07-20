@@ -45,6 +45,13 @@
 - 内容区默认使用 `px-4 md:px-6 lg:px-8 py-6` 的间距节奏；表格与画布在窄屏使用自身滚动，避免破坏全局布局。
 - 编辑器区域在桌面端占据内容区剩余高度；底部流程助手可收起、可调整高度，窄屏下保持全宽对话与横向编辑器能力。
 
+## 运行前准备
+
+- 每次运行本工程前，先确保 `node-green` 子模块已拉取：`git submodule update --init`（子模块内容为空目录时必须执行）。
+- `node-green` 首次拉取后需先初始化：在 `node-green/` 目录依次执行 `npm install` 和 `npm run build`（构建编辑器静态资源，否则 `/nodered` 页面会因资源 404 而空白）。
+- 可视化编程依赖 `node-green` 提供的 node-red 服务，需先启动：在 `node-green/` 目录执行 `npm start`，确认服务监听本机 `1880` 端口后，再启动本工程（`npm run dev`）。
+- 若 `1880` 端口未就绪，`/nodered` 页面会显示连接失败提示，属预期行为，启动 node-red 后重试即可。
+
 ## 构建与约束
 
 - 前端采用 React 19、TypeScript、Tailwind CSS v4 和 shadcn/ui，禁止修改 `src/index.tsx` 与 `src/components/ui/*`。
