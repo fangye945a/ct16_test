@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,6 +59,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MOCK_CLOUD_DEVICE_MODELS, MOCK_DEVICE_MODELS, type IDeviceModel } from '@/data/device-models';
+import { GetDeviceInstances } from '@/data/device-instances';
+import DeviceInstanceManagement from './DeviceInstanceManagement';
 
 const DEVICE_TYPES = ['all', '传感器', '仪表', '驱动器', '控制器'];
 
@@ -416,8 +419,7 @@ function UploadToCloudDialog({
   );
 }
 
-export default function DeviceModelPage() {
-  const [models, setModels] = useState<IDeviceModel[]>(MOCK_DEVICE_MODELS);
+function DeviceModelCatalog({ models, setModels }: { models: IDeviceModel[]; setModels: React.Dispatch<React.SetStateAction<IDeviceModel[]>> }) {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [sortAsc, setSortAsc] = useState(false);
@@ -462,6 +464,11 @@ export default function DeviceModelPage() {
 
   const handleDelete = () => {
     if (!deleteModel) return;
+    if (GetDeviceInstances().some((device) => device.modelId === deleteModel.id)) {
+      toast.error(`模型「${deleteModel.name}」仍有关联设备，无法删除`);
+      setDeleteModel(null);
+      return;
+    }
     setModels((prev) => prev.filter((x) => x.id !== deleteModel.id));
     toast.success(`模型「${deleteModel.name}」已删除`);
     setDeleteModel(null);
@@ -499,7 +506,7 @@ export default function DeviceModelPage() {
         className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-2xl font-black text-foreground">设备模型管理</h1>
+          <h1 className="text-2xl font-black text-foreground">设备模型</h1>
           <p className="text-sm text-muted-foreground mt-1">管理 DSDK 设备模型，支持与云平台同步</p>
         </div>
       </motion.div>
@@ -662,5 +669,24 @@ export default function DeviceModelPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+export default function DeviceModelPage() {
+  const [models, setModels] = useState<IDeviceModel[]>(MOCK_DEVICE_MODELS);
+
+  return (
+    <Tabs defaultValue="instances" className="w-full space-y-6">
+      <TabsList className="grid h-auto w-full max-w-md grid-cols-2 rounded-xl bg-muted/60 p-1">
+        <TabsTrigger value="instances" className="py-2.5 text-sm">设备实例</TabsTrigger>
+        <TabsTrigger value="models" className="py-2.5 text-sm">设备模型</TabsTrigger>
+      </TabsList>
+      <TabsContent value="instances" className="mt-0">
+        <DeviceInstanceManagement models={models} />
+      </TabsContent>
+      <TabsContent value="models" className="mt-0">
+        <DeviceModelCatalog models={models} setModels={setModels} />
+      </TabsContent>
+    </Tabs>
   );
 }

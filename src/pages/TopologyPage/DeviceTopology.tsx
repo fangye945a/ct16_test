@@ -1,9 +1,15 @@
-import { useMemo, useState, useRef, useCallback } from 'react';
+import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, ChevronDown, ChevronRight, Cpu, Layers3, RadioTower } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MOCK_DEVICE_NODES, type IDeviceNode } from '@/data/topology';
+import { MOCK_DEVICE_MODELS } from '@/data/device-models';
+import {
+  DEVICE_INSTANCES_CHANGED_EVENT,
+  GetDeviceInstances,
+  ToDeviceNode,
+} from '@/data/device-instances';
+import type { IDeviceNode } from '@/data/topology';
 
 type DeviceGroup = {
   deviceType: string;
@@ -43,9 +49,10 @@ function BuildDeviceGroups(devices: IDeviceNode[], collapsedTypes: Record<string
     acc[node.deviceType] = [...(acc[node.deviceType] || []), node];
     return acc;
   }, {});
+  const deviceTypes = [...order, ...Object.keys(grouped).filter((deviceType) => !order.includes(deviceType))];
 
   let cursor = CANVAS_PADDING;
-  return order
+  return deviceTypes
     .filter((deviceType) => grouped[deviceType]?.length)
     .map((deviceType) => {
       const groupDevices = grouped[deviceType];
@@ -208,7 +215,12 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (node: 
   const [collapsedTypes, setCollapsedTypes] = useState<Record<string, boolean>>({});
   const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
-  const devices = MOCK_DEVICE_NODES;
+  const [devices, setDevices] = useState<IDeviceNode[]>(() => GetDeviceInstances().map((device) => ToDeviceNode(device, MOCK_DEVICE_MODELS)));
+  useEffect(() => {
+    const reloadDevices = () => setDevices(GetDeviceInstances().map((device) => ToDeviceNode(device, MOCK_DEVICE_MODELS)));
+    window.addEventListener(DEVICE_INSTANCES_CHANGED_EVENT, reloadDevices);
+    return () => window.removeEventListener(DEVICE_INSTANCES_CHANGED_EVENT, reloadDevices);
+  }, []);
   const groups = useMemo(() => BuildDeviceGroups(devices, collapsedTypes), [devices, collapsedTypes]);
   const canvasWidth = GetCanvasWidth(groups);
   const controllerX = canvasWidth / 2;

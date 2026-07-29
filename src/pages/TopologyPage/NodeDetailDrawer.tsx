@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Sheet,
   SheetContent,
@@ -27,6 +29,7 @@ import {
   Radio,
   Waves,
   ArrowUpDown,
+  ArrowRight,
   MapPin,
   Hash,
   Cable,
@@ -58,6 +61,7 @@ function isNetworkDevice(node: INetworkDevice | IDeviceNode): node is INetworkDe
 }
 
 export default function NodeDetailDrawer({ open, onClose, node, tab }: NodeDetailDrawerProps) {
+  const navigate = useNavigate();
   if (!node) return null;
 
   return (
@@ -160,6 +164,10 @@ export default function NodeDetailDrawer({ open, onClose, node, tab }: NodeDetai
                   </Badge>
                   <div className="text-sm font-bold text-[#111827] mt-1">{node.deviceType}</div>
                 </div>
+                <Button variant="outline" size="sm" className="ml-auto shrink-0 text-xs" onClick={() => navigate('/device-models')}>
+                  管理设备
+                  <ArrowRight className="ml-1 size-3.5" />
+                </Button>
               </div>
 
               {/* 实时数据 */}
