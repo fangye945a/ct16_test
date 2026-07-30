@@ -66,6 +66,7 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  Upload,
   Wifi,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -81,6 +82,8 @@ import {
   type DeviceStatus,
   type IDeviceInstance,
 } from '@/data/device-instances';
+import BatchDeviceImportDialog from './components/BatchDeviceImportDialog';
+import type { IDeviceBatchImportRow } from './deviceBatchImport';
 
 const INTERFACE_TYPES = ['RS485', 'ETH', 'DI', 'DO', 'AI', 'AO'];
 const DEVICE_STATUS_OPTIONS: Array<{ value: DeviceStatus | 'all'; label: string }> = [
@@ -471,6 +474,7 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
   const [modelFilter, setModelFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<DeviceStatus | 'all'>('all');
   const [formOpen, setFormOpen] = useState(false);
+  const [batchImportOpen, setBatchImportOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<IDeviceInstance | null>(null);
   const [detailDeviceId, setDetailDeviceId] = useState<string | null>(null);
   const [deleteDevice, setDeleteDevice] = useState<IDeviceInstance | null>(null);
@@ -545,6 +549,45 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
     toast.success(deviceId ? `设备「${nextDevice.name}」已更新` : `设备「${nextDevice.name}」已添加`);
   };
 
+  const handleBatchAdd = (rows: IDeviceBatchImportRow[]) => {
+    if (rows.length === 0) {
+      return;
+    }
+    const nextDevices = rows.reduce<IDeviceInstance[]>((currentDevices, row, index) => {
+      const model = models.find((item) => item.id === row.modelId);
+      if (!model) {
+        return currentDevices;
+      }
+      const dataPointValues = BuildDataPointValues(model);
+      const firstDataPoint = model.dataPoints[0];
+      const nextDevice: IDeviceInstance = {
+        id: `device-${Date.now()}-${index}`,
+        name: row.name,
+        modelId: model.id,
+        modelName: model.name,
+        deviceType: model.name,
+        category: GetDeviceCategory(model.type),
+        interfaceType: row.interfaceType,
+        interfaceLabel: row.interfaceLabel || row.interfaceType,
+        status: 'normal',
+        serialNumber: row.serialNumber,
+        address: row.address,
+        description: row.description,
+        location: row.location,
+        displayValue: firstDataPoint ? dataPointValues[firstDataPoint.identifier] : '-',
+        displayUnit: firstDataPoint?.unit || '',
+        dataPointValues,
+        lastUpdate: '刚刚',
+        angle: 0,
+        distance: 200,
+        group: GetDeviceGroup(row.interfaceType),
+      };
+      return [nextDevice, ...currentDevices];
+    }, devices);
+    UpdateDevices(nextDevices);
+    toast.success(`本机成功添加 ${rows.length} 台设备`);
+  };
+
   const handleDelete = () => {
     if (!deleteDevice) return;
     UpdateDevices(devices.filter((device) => device.id !== deleteDevice.id));
@@ -590,10 +633,13 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
         className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center"
       >
         <div>
-          <h1 className="text-2xl font-black text-foreground">设备管理</h1>
+          <h1 className="text-2xl font-black text-foreground">设备实例</h1>
           <p className="mt-1 text-sm text-muted-foreground">根据设备模型创建实例，为设备配置唯一 SN 并进行数据点读写</p>
         </div>
-        <Button onClick={openAddDialog}><Plus className="mr-1.5 size-4" />添加设备</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setBatchImportOpen(true)}><Upload className="mr-1.5 size-4" />批量添加</Button>
+          <Button onClick={openAddDialog}><Plus className="mr-1.5 size-4" />添加设备</Button>
+        </div>
       </motion.div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -675,6 +721,7 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
       </Card>
 
       <DeviceFormDialog open={formOpen} device={editingDevice} models={models} devices={devices} onClose={() => { setFormOpen(false); setEditingDevice(null); }} onSubmit={handleSubmit} />
+      <BatchDeviceImportDialog open={batchImportOpen} devices={devices} models={models} onAddLocalDevices={handleBatchAdd} onClose={() => setBatchImportOpen(false)} />
       <DeviceDetailDialog device={detailDevice} model={detailModel} open={Boolean(detailDevice)} onClose={() => setDetailDeviceId(null)} onRead={handleRead} onWrite={handleWrite} />
       <AlertDialog open={Boolean(deleteDevice)} onOpenChange={(isOpen) => !isOpen && setDeleteDevice(null)}>
         <AlertDialogContent className="border-border/40 bg-card/95">
