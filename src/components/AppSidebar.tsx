@@ -32,7 +32,10 @@ const NAV_ITEMS = [
   { path: '/settings', label: '系统设置', icon: Settings },
 ];
 
-function LogoIcon({ type }: { type: string }) {
+function LogoIcon({ type, image }: { type: string; image: string }) {
+  if (type === 'custom' && image) {
+    return <img src={image} alt="系统图标" className="size-[18px] object-contain" />;
+  }
   if (type === 'gear') {
     return (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -69,11 +72,13 @@ export default function AppSidebar() {
   const { pathname } = useLocation();
   const [systemName, setSystemName] = useState(() => localStorage.getItem('zaihong:systemName') || '在鸿设备管理系统');
   const [logoType, setLogoType] = useState(() => localStorage.getItem('zaihong:logoType') || 'chip');
+  const [logoImage, setLogoImage] = useState(() => localStorage.getItem('zaihong:logoImage') || '');
 
   useEffect(() => {
     const handler = () => {
       setSystemName(localStorage.getItem('zaihong:systemName') || '在鸿设备管理系统');
       setLogoType(localStorage.getItem('zaihong:logoType') || 'chip');
+      setLogoImage(localStorage.getItem('zaihong:logoImage') || '');
     };
     window.addEventListener('zaihong:appearance-changed', handler);
     return () => window.removeEventListener('zaihong:appearance-changed', handler);
@@ -84,7 +89,7 @@ export default function AppSidebar() {
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-3 group-data-[state=collapsed]:px-0 group-data-[state=collapsed]:justify-center">
           <div className="size-8 shrink-0 rounded-md bg-primary text-primary-foreground flex items-center justify-center">
-            <LogoIcon type={logoType} />
+            <LogoIcon type={logoType} image={logoImage} />
           </div>
           <div className="flex-1 min-w-0 self-center group-data-[state=collapsed]:hidden">
             <div className="text-base font-semibold truncate">{systemName}</div>

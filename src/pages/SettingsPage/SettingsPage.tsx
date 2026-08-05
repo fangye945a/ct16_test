@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,7 @@ import {
   Eye,
   EyeOff,
   Upload,
+  LoaderCircle,
 } from 'lucide-react';
 import {
   MOCK_TIME_SETTINGS,
@@ -52,6 +53,18 @@ import {
   type NetworkInterfaceId,
 } from '@/data/settings';
 import { toast } from 'sonner';
+import {
+  ChangePrototypeAdminPassword,
+  GetPrototypeAppearance,
+  GetPrototypeServiceStatus,
+  GetPrototypeTimeSettings,
+  GetPrototypeTimezones,
+  SavePrototypeAppearance,
+  SavePrototypeTimeSettings,
+  SetPrototypeServiceStatus,
+  VerifyPrototypeAdminPassword,
+  type PrototypeServiceStatus,
+} from '@/services/prototypeRuntime';
 
 const PRESET_LOGOS = [
   { key: 'chip', label: '芯片' },
@@ -253,13 +266,25 @@ export default function SettingsPage() {
   const [wirelessSlots, setWirelessSlots] = useState<IWirelessSlotSettings>(() => LoadWirelessSlots());
   const [networkInterfaces, setNetworkInterfaces] = useState<INetworkInterfaceSettings>(() => LoadNetworkInterfaces());
   const [time, setTime] = useState<ITimeSettings>({ ...MOCK_TIME_SETTINGS });
+  const [timezones, setTimezones] = useState<string[]>([]);
+  const [timezoneSearch, setTimezoneSearch] = useState('');
+  const [timeLoading, setTimeLoading] = useState(true);
+  const [timeSaving, setTimeSaving] = useState(false);
   const [security, setSecurity] = useState<ISecuritySettings>({ ...MOCK_SECURITY_SETTINGS });
+  const [serviceStatus, setServiceStatus] = useState<PrototypeServiceStatus>({ sshd: true, hdcd: true });
+  const [pendingService, setPendingService] = useState<keyof PrototypeServiceStatus | null>(null);
+  const [pendingServiceEnabled, setPendingServiceEnabled] = useState(false);
+  const [servicePassword, setServicePassword] = useState('');
+  const [serviceError, setServiceError] = useState('');
+  const [serviceBusy, setServiceBusy] = useState(false);
   const [newIp, setNewIp] = useState('');
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
 
   const [systemName, setSystemName] = useState(() => localStorage.getItem('zaihong:systemName') || '在鸿设备管理系统');
   const [logoType, setLogoType] = useState(() => localStorage.getItem('zaihong:logoType') || 'chip');
+  const [logoImage, setLogoImage] = useState(() => localStorage.getItem('zaihong:logoImage') || '');
+  const logoUploadRef = useRef<HTMLInputElement>(null);
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -267,10 +292,48 @@ export default function SettingsPage() {
   const [showCurrentPwd, setShowCurrentPwd] = useState(false);
   const [showNewPwd, setShowNewPwd] = useState(false);
 
-  const saveAll = () => {
+  useEffect(() => {
+    let active = true;
+    void Promise.all([
+      GetPrototypeTimeSettings(),
+      GetPrototypeTimezones(),
+      GetPrototypeServiceStatus(),
+      GetPrototypeAppearance(),
+    ]).then(([timeSettings, availableTimezones, services, appearance]) => {
+      if (!active) {
+        return;
+      }
+      setTime((current) => ({ ...current, ...timeSettings }));
+      setTimezones(availableTimezones);
+      setServiceStatus(services);
+      setSecurity((current) => ({ ...current, sshEnabled: services.sshd }));
+      setSystemName(appearance.systemName);
+      setLogoType(appearance.logoType);
+      setLogoImage(appearance.logoImage);
+    }).catch(() => {
+      if (active) {
+        toast.error('系统设置模拟数据加载失败');
+      }
+    }).finally(() => {
+      if (active) {
+        setTimeLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const visibleTimezones = useMemo(() => {
+    const query = timezoneSearch.trim().toLowerCase();
+    return query ? timezones.filter((timezone) => timezone.toLowerCase().includes(query)) : timezones;
+  }, [timezoneSearch, timezones]);
+
+  const saveAll = async () => {
     try {
       localStorage.setItem(WIRELESS_STORAGE_KEY, JSON.stringify(wirelessSlots));
       localStorage.setItem(NETWORK_STORAGE_KEY, JSON.stringify(networkInterfaces));
+      await SavePrototypeTimeSettings({ timezone: time.timezone, ntpServer: time.ntpServer });
       window.dispatchEvent(new Event('zaihong:wireless-config-changed'));
       window.dispatchEvent(new Event('zaihong:network-config-changed'));
       setShowSaveDialog(false);
@@ -323,14 +386,85 @@ export default function SettingsPage() {
     setSecurity((prev) => ({ ...prev, allowedIps: prev.allowedIps.filter((i) => i !== ip) }));
   };
 
-  const handleSaveAppearance = () => {
-    localStorage.setItem('zaihong:systemName', systemName);
-    localStorage.setItem('zaihong:logoType', logoType);
-    window.dispatchEvent(new Event('zaihong:appearance-changed'));
-    toast.success('系统外观已更新');
+  const saveTimeSettings = async () => {
+    setTimeSaving(true);
+    try {
+      await SavePrototypeTimeSettings({ timezone: time.timezone, ntpServer: time.ntpServer });
+      toast.success('时间和 NTP 设置已保存');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '保存时间设置失败');
+    } finally {
+      setTimeSaving(false);
+    }
   };
 
-  const handleChangePassword = () => {
+  const handleServiceToggle = (service: keyof PrototypeServiceStatus, enabled: boolean) => {
+    setPendingService(service);
+    setPendingServiceEnabled(enabled);
+    setServicePassword('');
+    setServiceError('');
+  };
+
+  const confirmServiceToggle = async () => {
+    if (!pendingService) {
+      return;
+    }
+    setServiceBusy(true);
+    setServiceError('');
+    try {
+      await VerifyPrototypeAdminPassword(servicePassword);
+      const next = await SetPrototypeServiceStatus(pendingService, pendingServiceEnabled);
+      setServiceStatus(next);
+      setSecurity((current) => ({ ...current, sshEnabled: next.sshd }));
+      toast.success(`${pendingService === 'sshd' ? 'SSH' : 'HDC'} 服务已${pendingServiceEnabled ? '启动' : '停止'}`);
+      setPendingService(null);
+    } catch (error) {
+      setServiceError(error instanceof Error ? error.message : '服务操作失败');
+    } finally {
+      setServiceBusy(false);
+    }
+  };
+
+  const handleSaveAppearance = async () => {
+    try {
+      const appearance = await SavePrototypeAppearance({ systemName, logoType, logoImage });
+      setSystemName(appearance.systemName);
+      setLogoType(appearance.logoType);
+      setLogoImage(appearance.logoImage);
+      toast.success('系统外观已更新');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '保存系统外观失败');
+    }
+  };
+
+  const handleLogoUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) {
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      toast.error('仅支持 PNG、JPEG 或 WebP 格式的图片');
+      return;
+    }
+    if (file.size > 512 * 1024) {
+      toast.error('图标文件不能超过 512 KiB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') {
+        toast.error('读取图标文件失败');
+        return;
+      }
+      setLogoImage(reader.result);
+      setLogoType('custom');
+    };
+    reader.onerror = () => toast.error('读取图标文件失败');
+    reader.readAsDataURL(file);
+  };
+
+  const handleChangePassword = async () => {
     if (!currentPassword) {
       toast.error('请输入当前密码');
       return;
@@ -344,26 +478,14 @@ export default function SettingsPage() {
       return;
     }
 
-    const stored = localStorage.getItem('zaihong:credentials');
-    if (!stored) {
-      toast.error('未找到账号信息');
-      return;
-    }
-
     try {
-      const creds = JSON.parse(stored);
-      if (creds.password !== currentPassword) {
-        toast.error('当前密码不正确');
-        return;
-      }
-      creds.password = newPassword;
-      localStorage.setItem('zaihong:credentials', JSON.stringify(creds));
+      await ChangePrototypeAdminPassword(currentPassword, newPassword);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
       toast.success('密码已修改成功');
-    } catch {
-      toast.error('密码修改失败');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '密码修改失败');
     }
   };
 
@@ -502,33 +624,44 @@ export default function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-sm">时区</Label>
-              <Select
-                value={time.timezone}
-                onValueChange={(v) => setTime((prev) => ({ ...prev, timezone: v }))}
-              >
-                <SelectTrigger className="h-9 text-base">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Asia/Shanghai">Asia/Shanghai (UTC+8)</SelectItem>
-                  <SelectItem value="Asia/Tokyo">Asia/Tokyo (UTC+9)</SelectItem>
-                  <SelectItem value="America/New_York">America/New_York (UTC-5)</SelectItem>
-                  <SelectItem value="Europe/London">Europe/London (UTC+0)</SelectItem>
-                </SelectContent>
-              </Select>
+          {timeLoading ? (
+            <div className="flex h-20 items-center justify-center gap-2 text-sm text-muted-foreground">
+              <LoaderCircle className="size-4 animate-spin" />正在加载时间设置
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm">NTP 服务器</Label>
-              <Input
-                value={time.ntpServer}
-                onChange={(e) => setTime((prev) => ({ ...prev, ntpServer: e.target.value }))}
-                className="h-9 text-base"
-              />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="timezone-search" className="text-sm">时区</Label>
+                <Input
+                  id="timezone-search"
+                  value={timezoneSearch}
+                  onChange={(event) => setTimezoneSearch(event.target.value)}
+                  placeholder="搜索时区"
+                  className="h-9 text-base"
+                />
+                <Select value={time.timezone} onValueChange={(timezone) => setTime((current) => ({ ...current, timezone }))}>
+                  <SelectTrigger className="h-9 text-base"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {visibleTimezones.length > 0 ? visibleTimezones.map((timezone) => (
+                      <SelectItem key={timezone} value={timezone}>{timezone}</SelectItem>
+                    )) : <SelectItem value={time.timezone}>{time.timezone}</SelectItem>}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ntp-server" className="text-sm">NTP 服务器</Label>
+                <Input
+                  id="ntp-server"
+                  value={time.ntpServer}
+                  onChange={(event) => setTime((current) => ({ ...current, ntpServer: event.target.value }))}
+                  className="h-9 text-base"
+                />
+                <Button size="sm" onClick={() => void saveTimeSettings()} disabled={timeSaving}>
+                  {timeSaving && <LoaderCircle className="size-3.5 animate-spin" />}保存时间设置
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
@@ -553,14 +686,13 @@ export default function SettingsPage() {
                 className="h-9 text-base"
               />
             </div>
-            <div className="flex items-end gap-4 pb-1">
+            <div className="flex flex-wrap items-end gap-4 pb-1">
               <label className="flex items-center gap-2 cursor-pointer">
                 <button
-                  onClick={() =>
-                    setSecurity((prev) => ({ ...prev, sshEnabled: !prev.sshEnabled }))
-                  }
+                  type="button"
+                  onClick={() => handleServiceToggle('sshd', !serviceStatus.sshd)}
                 >
-                  {security.sshEnabled ? (
+                  {serviceStatus.sshd ? (
                     <ToggleRight className="size-5 text-success" />
                   ) : (
                     <ToggleLeft className="size-5 text-muted-foreground" />
@@ -569,7 +701,14 @@ export default function SettingsPage() {
                 <span className="text-sm">启用 SSH</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
+                <button type="button" onClick={() => handleServiceToggle('hdcd', !serviceStatus.hdcd)}>
+                  {serviceStatus.hdcd ? <ToggleRight className="size-5 text-success" /> : <ToggleLeft className="size-5 text-muted-foreground" />}
+                </button>
+                <span className="text-sm">启用 HDC</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
                 <button
+                  type="button"
                   onClick={() =>
                     setSecurity((prev) => ({ ...prev, httpsOnly: !prev.httpsOnly }))
                   }
@@ -638,6 +777,7 @@ export default function SettingsPage() {
               {PRESET_LOGOS.map((item) => (
                 <button
                   key={item.key}
+                  type="button"
                   onClick={() => setLogoType(item.key)}
                   className={`size-12 rounded-xl flex items-center justify-center border-2 transition-all ${
                     logoType === item.key
@@ -650,13 +790,16 @@ export default function SettingsPage() {
                 </button>
               ))}
               <button
+                type="button"
                 className="size-12 rounded-xl flex flex-col items-center justify-center gap-0.5 border-2 border-dashed border-border/40 bg-card text-muted-foreground hover:border-primary/40 transition-all"
                 title="上传自定义图标"
-                onClick={() => toast.info('上传功能开发中')}
+                onClick={() => logoUploadRef.current?.click()}
               >
                 <Upload className="size-4" />
                 <span className="text-[8px]">上传</span>
               </button>
+              <input ref={logoUploadRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleLogoUpload} />
+              {logoType === 'custom' && logoImage ? <img src={logoImage} alt="自定义系统图标预览" className="size-12 rounded-xl border border-border/60 object-contain p-1" /> : null}
             </div>
           </div>
           <Button size="sm" onClick={handleSaveAppearance}>
@@ -732,6 +875,36 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <Dialog open={pendingService !== null} onOpenChange={(open) => !open && setPendingService(null)}>
+        <DialogContent className="border-border/40 bg-card/95">
+          <DialogHeader>
+            <DialogTitle>{pendingService === 'sshd' ? 'SSH' : 'HDC'} 服务确认</DialogTitle>
+            <DialogDescription>
+              原型模式会仅更新当前浏览器中的服务状态，不会操作真实设备服务。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="service-password">管理员密码</Label>
+            <Input
+              id="service-password"
+              type="password"
+              value={servicePassword}
+              onChange={(event) => setServicePassword(event.target.value)}
+              onKeyDown={(event) => event.key === 'Enter' && void confirmServiceToggle()}
+              autoComplete="current-password"
+            />
+            {serviceError ? <p className="text-xs text-destructive">{serviceError}</p> : null}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingService(null)} disabled={serviceBusy}>取消</Button>
+            <Button onClick={() => void confirmServiceToggle()} disabled={serviceBusy || !servicePassword}>
+              {serviceBusy && <LoaderCircle className="size-3.5 animate-spin" />}
+              确认{pendingServiceEnabled ? '启动' : '停止'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Save Confirm Dialog */}
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>

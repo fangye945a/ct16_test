@@ -1,489 +1,180 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Bot, CheckCircle2, Download, LoaderCircle, Package, Plus, RefreshCw, Settings2, TestTube2, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import ReactECharts from 'echarts-for-react';
+import { Textarea } from '@/components/ui/textarea';
 import {
-  Bot,
-  Cpu,
-  Zap,
-  BarChart3,
-  Activity,
-  Clock,
-  CheckCircle,
-  Plus,
-  Settings,
-  ToggleLeft,
-  ToggleRight,
-  Download,
-  TrendingUp,
-  TrendingDown,
-  BrainCircuit,
-} from 'lucide-react';
-import {
-  MOCK_SKILLS,
-  MOCK_MARKET_SKILLS,
-  MOCK_AGENT_CONFIG,
-  MOCK_AGENT_STATS,
-  type ISkill,
-  type IAgentConfig,
-} from '@/data/picoclaw';
-import { CHART_COLORS } from '@/lib/chart-colors';
-import { toast } from 'sonner';
-import { Image } from '@/components/ui/image';
+  DeletePrototypeModel,
+  DeletePrototypeSkill,
+  GetPrototypeMarketplaceSkills,
+  GetPrototypeModels,
+  GetPrototypeSkills,
+  ImportPrototypeSkill,
+  SavePrototypeModel,
+  SetPrototypeDefaultModel,
+  SetPrototypeSkillEnabled,
+  TestPrototypeModel,
+  type PrototypeModel,
+  type PrototypeSkill,
+} from '@/services/prototypeRuntime';
 
-export default function PicoClawPage() {
-  const [agentConfig, setAgentConfig] = useState<IAgentConfig>(MOCK_AGENT_CONFIG);
-  const [skills, setSkills] = useState<ISkill[]>(MOCK_SKILLS);
-  const [marketSkills, setMarketSkills] = useState<ISkill[]>(MOCK_MARKET_SKILLS);
-  const [stats, setStats] = useState(MOCK_AGENT_STATS);
-  const [configSkill, setConfigSkill] = useState<ISkill | null>(null);
-  const [activeTab, setActiveTab] = useState('installed');
+type ModelDraft = Pick<PrototypeModel, 'name' | 'provider' | 'apiBase' | 'apiKey'> & { id?: string };
 
-  // Simulate stats update
+const EMPTY_MODEL: ModelDraft = { name: '', provider: '自定义兼容接口', apiBase: '', apiKey: '' };
+
+function ModelDialog({ model, open, onOpenChange, onSaved }: { model: PrototypeModel | null; open: boolean; onOpenChange: (open: boolean) => void; onSaved: () => Promise<void> }) {
+  const [draft, setDraft] = useState<ModelDraft>(EMPTY_MODEL);
+  const [saving, setSaving] = useState(false);
+  const [showKey, setShowKey] = useState(false);
+
   useEffect(() => {
-    const timer = setInterval(() => {
-      setStats((prev) => ({
-        ...prev,
-        totalCalls: prev.totalCalls + Math.floor(Math.random() * 5),
-        avgResponseTime: Math.max(30, prev.avgResponseTime + (Math.random() - 0.5) * 2),
-      }));
-    }, 5000);
-    return () => clearInterval(timer);
-  }, []);
+    setDraft(model ? { id: model.id, name: model.name, provider: model.provider, apiBase: model.apiBase, apiKey: model.apiKey } : EMPTY_MODEL);
+    setShowKey(false);
+  }, [model, open]);
 
-  const toggleSkill = (id: string) => {
-    setSkills((prev) =>
-      prev.map((s) =>
-        s.id === id ? { ...s, status: s.status === 'enabled' ? 'disabled' as const : 'enabled' as const } : s
-      )
-    );
-    const skill = skills.find((s) => s.id === id);
-    if (skill) {
-      toast.success(`${skill.name} 已${skill.status === 'enabled' ? '停用' : '启用'}`);
+  const save = async () => {
+    if (!draft.name.trim() || !draft.provider.trim() || !draft.apiBase.trim()) {
+      toast.error('请填写模型名称、提供方和 API 地址');
+      return;
+    }
+    setSaving(true);
+    try {
+      await SavePrototypeModel({ ...draft, name: draft.name.trim(), provider: draft.provider.trim(), apiBase: draft.apiBase.trim() });
+      await onSaved();
+      onOpenChange(false);
+      toast.success(model ? '模型配置已保存' : '模型已添加');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '保存模型失败');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const installSkill = (skill: ISkill) => {
-    setMarketSkills((prev) => prev.filter((s) => s.id !== skill.id));
-    setSkills((prev) => [...prev, { ...skill, status: 'enabled' as const }]);
-    toast.success(`已安装: ${skill.name}`);
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>{model ? '编辑模型' : '添加模型'}</DialogTitle><DialogDescription>原型模式下配置仅保存于当前浏览器，不会访问外部模型服务。</DialogDescription></DialogHeader><div className="space-y-4"><div className="space-y-1.5"><Label htmlFor="model-name">模型名称</Label><Input id="model-name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="例如 Qwen3-8B" /></div><div className="space-y-1.5"><Label htmlFor="model-provider">提供方</Label><Input id="model-provider" value={draft.provider} onChange={(event) => setDraft({ ...draft, provider: event.target.value })} placeholder="本地模型或自定义提供方" /></div><div className="space-y-1.5"><Label htmlFor="model-base">API 地址</Label><Input id="model-base" value={draft.apiBase} onChange={(event) => setDraft({ ...draft, apiBase: event.target.value })} placeholder="http://127.0.0.1:11434/v1" /></div><div className="space-y-1.5"><Label htmlFor="model-key">API Key</Label><div className="flex gap-2"><Input id="model-key" type={showKey ? 'text' : 'password'} value={draft.apiKey} onChange={(event) => setDraft({ ...draft, apiKey: event.target.value })} placeholder="原型可留空" /><Button type="button" variant="outline" size="sm" onClick={() => setShowKey((value) => !value)}>{showKey ? '隐藏' : '显示'}</Button></div></div></div><DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>取消</Button><Button onClick={() => void save()} disabled={saving}>{saving && <LoaderCircle className="size-3.5 animate-spin" />}保存模型</Button></DialogFooter></DialogContent></Dialog>;
+}
+
+function ModelPanel() {
+  const [models, setModels] = useState<PrototypeModel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<PrototypeModel | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [testing, setTesting] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      setModels(await GetPrototypeModels());
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '加载模型配置失败');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const setDefault = async (id: string) => {
+    try {
+      await SetPrototypeDefaultModel(id);
+      await refresh();
+      toast.success('默认模型已切换，原型不会重启智能体服务');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '切换默认模型失败');
+    }
   };
 
-  const saveAgentConfig = () => {
-    toast.success('智能体配置已保存');
+  const testModel = async (model: PrototypeModel) => {
+    setTesting(model.id);
+    try {
+      const result = await TestPrototypeModel(model.id);
+      toast.success(result.message, { description: `模拟延迟 ${result.latency} ms` });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '模型测试失败');
+    } finally {
+      setTesting(null);
+    }
   };
 
-  const saveSkillConfig = () => {
-    setConfigSkill(null);
-    toast.success('技能配置已保存');
+  const deleteModel = async (model: PrototypeModel) => {
+    if (!window.confirm(`确认删除模型“${model.name}”？`)) return;
+    try {
+      await DeletePrototypeModel(model.id);
+      await refresh();
+      toast.success('模型已删除');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '删除模型失败');
+    }
   };
 
-  const barOption = {
-    grid: { top: 10, right: 10, bottom: 20, left: 40 },
-    xAxis: {
-      type: 'category',
-      data: stats.dailyLabels,
-      axisLabel: { color: '#888', fontSize: 10, interval: 3 },
-      axisLine: { lineStyle: { color: '#333' } },
-    },
-    yAxis: {
-      type: 'value',
-      axisLabel: { color: '#888', fontSize: 10 },
-      splitLine: { lineStyle: { color: '#222' } },
-    },
-    series: [
-      {
-        data: stats.dailyCalls,
-        type: 'bar',
-        itemStyle: {
-          color: CHART_COLORS[0],
-          borderRadius: [4, 4, 0, 0],
-        },
-        barWidth: '60%',
-      },
-    ],
+  return <div className="space-y-6"><Card className="border-border/40 bg-card/60"><CardHeader className="flex-row items-start justify-between gap-4 space-y-0"><div><CardTitle className="flex items-center gap-2 text-base"><Bot className="size-4 text-primary" />默认模型</CardTitle><CardDescription className="mt-1">选择智能体默认使用的模型配置。</CardDescription></div><Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}><RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />刷新</Button></CardHeader><CardContent>{loading ? <div className="grid h-24 place-items-center"><LoaderCircle className="size-5 animate-spin text-primary" /></div> : <div className="grid gap-3 lg:grid-cols-2">{models.map((model) => <button type="button" key={model.id} onClick={() => !model.isDefault && void setDefault(model.id)} className={`rounded-lg border p-4 text-left transition-colors ${model.isDefault ? 'border-primary/50 bg-primary/5' : 'border-border/60 hover:border-primary/40'}`}><div className="flex items-start justify-between gap-3"><div><p className="font-medium">{model.name}</p><p className="mt-1 text-xs text-muted-foreground">{model.provider}</p></div>{model.isDefault ? <Badge className="bg-success text-success-foreground">当前默认</Badge> : <Badge variant="outline">设为默认</Badge>}</div><p className="mt-3 truncate text-xs text-muted-foreground">{model.apiBase}</p></button>)}</div>}</CardContent></Card><Card className="border-border/40 bg-card/60"><CardHeader className="flex-row items-start justify-between gap-4 space-y-0"><div><CardTitle className="flex items-center gap-2 text-base"><Settings2 className="size-4 text-primary" />模型配置</CardTitle><CardDescription className="mt-1">管理本地与兼容接口模型，并提供模拟连通性测试。</CardDescription></div><Button size="sm" onClick={() => { setEditing(null); setDialogOpen(true); }}><Plus className="size-3.5" />添加模型</Button></CardHeader><CardContent className="space-y-3">{models.map((model) => <div key={model.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 p-4"><div className="min-w-0"><div className="flex items-center gap-2"><p className="font-medium">{model.name}</p>{model.available ? <CheckCircle2 className="size-3.5 text-success" /> : null}</div><p className="mt-1 truncate text-xs text-muted-foreground">{model.provider} · {model.apiBase}</p></div><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => void testModel(model)} disabled={testing === model.id}>{testing === model.id ? <LoaderCircle className="size-3.5 animate-spin" /> : <TestTube2 className="size-3.5" />}测试</Button><Button variant="outline" size="sm" onClick={() => { setEditing(model); setDialogOpen(true); }}>编辑</Button><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => void deleteModel(model)} disabled={model.isDefault} aria-label={`删除 ${model.name}`}><Trash2 className="size-4" /></Button></div></div>)}</CardContent></Card><ModelDialog model={editing} open={dialogOpen} onOpenChange={setDialogOpen} onSaved={refresh} /></div>;
+}
+
+function SkillPanel() {
+  const [skills, setSkills] = useState<PrototypeSkill[]>([]);
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [marketOpen, setMarketOpen] = useState(false);
+  const [detail, setDetail] = useState<PrototypeSkill | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      setSkills(await GetPrototypeSkills());
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '加载技能配置失败');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const visibleSkills = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return normalized ? skills.filter((skill) => `${skill.name} ${skill.category}`.toLowerCase().includes(normalized)) : skills;
+  }, [query, skills]);
+
+  const toggle = async (skill: PrototypeSkill) => {
+    await SetPrototypeSkillEnabled(skill.id, !skill.enabled);
+    await refresh();
+    toast.success(`${skill.name} 已${skill.enabled ? '停用' : '启用'}`);
   };
 
-  const gaugeOption = {
-    series: [
-      {
-        type: 'gauge',
-        startAngle: 210,
-        endAngle: -30,
-        center: ['50%', '60%'],
-        radius: '85%',
-        min: 0,
-        max: 100,
-        splitNumber: 10,
-        axisLine: {
-          show: true,
-          lineStyle: {
-            width: 12,
-            color: [
-              [0.3, '#F43F5E'],
-              [0.7, '#F97316'],
-              [1, '#00B894'],
-            ],
-          },
-        },
-        pointer: { show: false },
-        axisTick: { show: false },
-        splitLine: { show: false },
-        axisLabel: { show: false },
-        detail: {
-          valueAnimation: true,
-          fontSize: 28,
-          fontWeight: 'bold',
-          color: '#00B894',
-          offsetCenter: [0, '50%'],
-          formatter: '{value}%',
-        },
-        data: [{ value: Math.round(stats.successRate * 10) / 10 }],
-      },
-    ],
+  const remove = async (skill: PrototypeSkill) => {
+    if (!window.confirm(`确认删除技能“${skill.name}”？`)) return;
+    try {
+      await DeletePrototypeSkill(skill.id);
+      await refresh();
+      toast.success('技能已删除');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '删除技能失败');
+    }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Agent Config */}
-      <Card className="border-border/40 bg-card/60">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <BrainCircuit className="size-4 text-primary" />
-            智能体参数配置
-          </CardTitle>
-          <CardDescription>配置 PicoClaw 端侧智能体的运行参数</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs">模型选择</Label>
-              <Select
-                value={agentConfig.model}
-                onValueChange={(v) => setAgentConfig((prev) => ({ ...prev, model: v }))}
-              >
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TinyLLM-1B">TinyLLM-1B</SelectItem>
-                  <SelectItem value="MiniGPT-3B">MiniGPT-3B</SelectItem>
-                  <SelectItem value="Phi-2">Phi-2 (2.7B)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">上下文长度: {agentConfig.contextLength}</Label>
-              <Slider
-                value={[agentConfig.contextLength]}
-                onValueChange={([v]) => setAgentConfig((prev) => ({ ...prev, contextLength: v }))}
-                min={512}
-                max={4096}
-                step={512}
-                className="py-2"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">温度: {agentConfig.temperature.toFixed(1)}</Label>
-              <Slider
-                value={[agentConfig.temperature]}
-                onValueChange={([v]) => setAgentConfig((prev) => ({ ...prev, temperature: v }))}
-                min={0}
-                max={2}
-                step={0.1}
-                className="py-2"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">最大 Token 数</Label>
-              <Input
-                type="number"
-                value={agentConfig.maxTokens}
-                onChange={(e) =>
-                  setAgentConfig((prev) => ({ ...prev, maxTokens: Number(e.target.value) }))
-                }
-                className="h-9 text-sm"
-              />
-            </div>
-          </div>
-          <div className="mt-4">
-            <Button size="sm" onClick={saveAgentConfig}>
-              <Settings className="size-3.5 mr-1" />
-              保存配置
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+  const importSkill = async (skill: PrototypeSkill) => {
+    try {
+      await ImportPrototypeSkill(skill.id);
+      await refresh();
+      toast.success(`已导入技能：${skill.name}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '导入技能失败');
+    }
+  };
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { icon: Zap, label: '总调用次数', value: stats.totalCalls.toLocaleString(), color: CHART_COLORS[0] },
-          { icon: CheckCircle, label: '成功率', value: `${stats.successRate}%`, color: '#00B894' },
-          { icon: Clock, label: '平均响应时间', value: `${Math.round(stats.avgResponseTime)}ms`, color: CHART_COLORS[2] },
-          { icon: Activity, label: '活跃技能', value: `${skills.filter((s) => s.status === 'enabled').length}/${skills.length}`, color: CHART_COLORS[3] },
-        ].map((item, i) => (
-          <motion.div
-            key={item.label}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.4, delay: i * 0.05 }}
-          >
-            <Card className="border-border/40 bg-card/60">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground">{item.label}</p>
-                    <p className="text-2xl font-bold tabular-nums mt-1">{item.value}</p>
-                  </div>
-                  <div className="size-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${item.color}20`, color: item.color }}>
-                    <item.icon className="size-5" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
+  const market = GetPrototypeMarketplaceSkills();
+  return <div className="space-y-6"><Card className="border-border/40 bg-card/60"><CardHeader className="flex-row items-start justify-between gap-4 space-y-0"><div><CardTitle className="flex items-center gap-2 text-base"><Package className="size-4 text-primary" />技能配置</CardTitle><CardDescription className="mt-1">查看、启停和管理原型智能体技能。</CardDescription></div><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}><RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />刷新</Button><Button size="sm" onClick={() => setMarketOpen(true)}><Download className="size-3.5" />导入技能</Button></div></CardHeader><CardContent className="space-y-4"><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索已配置技能" className="max-w-md" />{loading ? <div className="grid h-32 place-items-center"><LoaderCircle className="size-5 animate-spin text-primary" /></div> : <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{visibleSkills.map((skill) => <Card key={skill.id} className="border-border/60"><CardHeader className="pb-3"><div className="flex items-start justify-between gap-3"><div><CardTitle className="text-sm">{skill.name}</CardTitle><CardDescription className="mt-1">{skill.category} · {skill.version}</CardDescription></div><Badge variant="outline" className={skill.enabled ? 'border-success/30 bg-success/5 text-success' : ''}>{skill.enabled ? '已启用' : '已停用'}</Badge></div></CardHeader><CardContent><p className="min-h-10 text-xs leading-5 text-muted-foreground">{skill.description}</p><div className="mt-4 flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => setDetail(skill)}>详情</Button><Button variant="outline" size="sm" onClick={() => void toggle(skill)}>{skill.enabled ? '停用' : '启用'}</Button><Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={skill.system} onClick={() => void remove(skill)}>{skill.system ? '系统技能' : '删除'}</Button></div></CardContent></Card>)}</div>}</CardContent></Card><Dialog open={marketOpen} onOpenChange={setMarketOpen}><DialogContent><DialogHeader><DialogTitle>导入技能</DialogTitle><DialogDescription>导入后仅写入当前浏览器的原型数据，不安装到设备。</DialogDescription></DialogHeader><div className="max-h-[50vh] space-y-3 overflow-y-auto">{market.map((skill) => <div key={skill.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 p-3"><div><p className="text-sm font-medium">{skill.name}</p><p className="mt-1 text-xs text-muted-foreground">{skill.category} · {skill.version}</p></div><Button size="sm" onClick={() => void importSkill(skill)}>导入</Button></div>)}</div><DialogFooter><Button variant="outline" onClick={() => setMarketOpen(false)}>关闭</Button></DialogFooter></DialogContent></Dialog><Dialog open={!!detail} onOpenChange={(open) => !open && setDetail(null)}><DialogContent><DialogHeader><DialogTitle>{detail?.name}</DialogTitle><DialogDescription>{detail?.category} · {detail?.version}</DialogDescription></DialogHeader><Textarea readOnly value={detail?.description || ''} className="min-h-28 resize-none" /><DialogFooter><Button onClick={() => setDetail(null)}>关闭</Button></DialogFooter></DialogContent></Dialog></div>;
+}
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="border-border/40 bg-card/60 lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <BarChart3 className="size-4 text-primary" />
-              近 24 小时调用量
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ReactECharts option={barOption} style={{ height: 200 }} />
-          </CardContent>
-        </Card>
-        <Card className="border-border/40 bg-card/60">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Activity className="size-4 text-success" />
-              成功率
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ReactECharts option={gaugeOption} style={{ height: 200 }} />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Skills Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-      <Card className="border-border/40 bg-card/60">
-        <CardHeader className="pb-0">
-            <TabsList>
-              <TabsTrigger value="installed" className="text-xs">
-                已安装技能 ({skills.length})
-              </TabsTrigger>
-              <TabsTrigger value="market" className="text-xs">
-                技能市场 ({marketSkills.length})
-              </TabsTrigger>
-            </TabsList>
-        </CardHeader>
-        <CardContent className="pt-4">
-          <TabsContent value="installed" className="mt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {skills.map((skill, i) => (
-                <motion.div
-                  key={skill.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: i * 0.05 }}
-                >
-                  <Card className="border-border/40 bg-card/60 hover:border-primary/30 transition-colors">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="size-12 rounded-lg overflow-hidden shrink-0 bg-muted/40 border border-border/30">
-                          <Image
-                            src={skill.imageUrl}
-                            alt={skill.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <h4 className="text-sm font-semibold truncate">{skill.name}</h4>
-                            <button
-                              onClick={() => toggleSkill(skill.id)}
-                              className="shrink-0"
-                            >
-                              {skill.status === 'enabled' ? (
-                                <ToggleRight className="size-5 text-success" />
-                              ) : (
-                                <ToggleLeft className="size-5 text-muted-foreground" />
-                              )}
-                            </button>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
-                              {skill.version}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {skill.category}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                            {skill.description}
-                          </p>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="mt-2 h-7 text-xs"
-                            onClick={() => setConfigSkill(skill)}
-                          >
-                            <Settings className="size-3 mr-1" />
-                            配置参数
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="market" className="mt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {marketSkills.map((skill, i) => (
-                <motion.div
-                  key={skill.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: i * 0.05 }}
-                >
-                  <Card className="border-border/40 bg-card/60 hover:border-primary/30 transition-colors">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="size-12 rounded-lg overflow-hidden shrink-0 bg-muted/40 border border-border/30">
-                          <Image
-                            src={skill.imageUrl}
-                            alt={skill.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-semibold">{skill.name}</h4>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
-                              {skill.version}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {skill.category}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                            {skill.description}
-                          </p>
-                          <Button
-                            size="sm"
-                            className="mt-2 h-7 text-xs"
-                            onClick={() => installSkill(skill)}
-                          >
-                            <Download className="size-3 mr-1" />
-                            安装
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          </TabsContent>
-        </CardContent>
-      </Card>
-        </Tabs>
-
-      {/* Skill Config Dialog */}
-      <Dialog open={!!configSkill} onOpenChange={() => setConfigSkill(null)}>
-        <DialogContent className="max-w-md border-border/40 bg-card/95">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <Settings className="size-4 text-primary" />
-              {configSkill?.name} - 参数配置
-            </DialogTitle>
-          </DialogHeader>
-          {configSkill && (
-            <div className="space-y-4">
-              {Object.entries(configSkill.config).map(([key, val]) => (
-                <div key={key} className="space-y-1.5">
-                  <Label className="text-xs capitalize">{key}</Label>
-                  {typeof val === 'boolean' ? (
-                    <button
-                      onClick={() => {
-                        setConfigSkill({
-                          ...configSkill,
-                          config: { ...configSkill.config, [key]: !val },
-                        });
-                      }}
-                    >
-                      {val ? (
-                        <ToggleRight className="size-5 text-success" />
-                      ) : (
-                        <ToggleLeft className="size-5 text-muted-foreground" />
-                      )}
-                    </button>
-                  ) : typeof val === 'number' ? (
-                    <Input
-                      type="number"
-                      value={val}
-                      onChange={(e) =>
-                        setConfigSkill({
-                          ...configSkill,
-                          config: { ...configSkill.config, [key]: Number(e.target.value) },
-                        })
-                      }
-                      className="h-9 text-sm"
-                    />
-                  ) : (
-                    <Input
-                      value={String(val)}
-                      onChange={(e) =>
-                        setConfigSkill({
-                          ...configSkill,
-                          config: { ...configSkill.config, [key]: e.target.value },
-                        })
-                      }
-                      className="h-9 text-sm"
-                    />
-                  )}
-                </div>
-              ))}
-              <Button onClick={saveSkillConfig} className="w-full">
-                保存配置
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+export default function PicoClawPage() {
+  return <div className="space-y-6"><div><h1 className="text-lg font-semibold">智能体配置</h1><p className="mt-1 text-sm text-muted-foreground">管理模型与技能；原型模式不会连接真实智能体网关。</p></div><Tabs defaultValue="models"><TabsList className="h-auto w-full max-w-md rounded-2xl bg-muted/60 p-1"><TabsTrigger value="models" className="flex-1 gap-1.5 rounded-xl py-2 text-sm"><Bot className="size-3.5" />模型配置</TabsTrigger><TabsTrigger value="skills" className="flex-1 gap-1.5 rounded-xl py-2 text-sm"><Package className="size-3.5" />技能配置</TabsTrigger></TabsList><TabsContent value="models" className="mt-6"><ModelPanel /></TabsContent><TabsContent value="skills" className="mt-6"><SkillPanel /></TabsContent></Tabs></div>;
 }

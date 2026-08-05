@@ -1,558 +1,198 @@
-import { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  ChevronRight,
-  ChevronDown,
-  Folder,
-  File,
-  Search,
-  Download,
-  FileText,
-  AlertTriangle,
-  Info,
-  Bug,
-  AlertCircle,
-  CheckSquare,
-  Square,
-} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Activity, AlertTriangle, Download, FileSearch, FileText, Pause, Play, RefreshCw, Search, Terminal, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { MOCK_FILES, type IFileNode } from '@/data/files';
-import { MOCK_LOGS, type ILogEntry } from '@/data/logs';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  CreatePrototypeLogLine,
+  GetPrototypeLogFiles,
+  GetPrototypeLogPreview,
+  type PrototypeLogFile,
+  type PrototypeLogKind,
+} from '@/services/prototypeRuntime';
 
-// ── 文件树节点 ──────────────────────────────────────────────
+const PAGE_SIZE = 5;
 
-function FileTreeNode({
-  node,
-  depth,
-  selectedId,
-  onSelect,
-  expandedIds,
-  onToggle,
-}: {
-  node: IFileNode;
-  depth: number;
-  selectedId: string | null;
-  onSelect: (n: IFileNode) => void;
-  expandedIds: Set<string>;
-  onToggle: (id: string) => void;
-}) {
-  const isExpanded = expandedIds.has(node.id);
-  const isSelected = selectedId === node.id;
-  const isDir = node.type === 'directory';
-
-  return (
-    <div>
-      <button
-        className={`flex items-center gap-1.5 w-full px-2 py-1.5 rounded-lg text-left transition-all text-xs ${
-          isSelected
-            ? 'bg-primary/10 text-primary font-bold'
-            : 'text-foreground hover:bg-muted font-medium'
-        }`}
-        style={{ paddingLeft: `${depth * 16 + 8}px` }}
-        onClick={() => {
-          onSelect(node);
-          if (isDir) onToggle(node.id);
-        }}
-      >
-        {isDir ? (
-          isExpanded ? (
-            <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
-          )
-        ) : (
-          <span className="w-3 shrink-0" />
-        )}
-        {isDir ? (
-          <Folder className="size-3.5 shrink-0 text-[#00B894]" />
-        ) : (
-          <File className="size-3.5 shrink-0 text-muted-foreground" />
-        )}
-        <span className="truncate">{node.name}</span>
-      </button>
-      {isDir && isExpanded && node.children && (
-        <div>
-          {node.children.map((child) => (
-            <FileTreeNode
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              expandedIds={expandedIds}
-              onToggle={onToggle}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
+function FormatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-// ── 面包屑 ──────────────────────────────────────────────────
-
-function Breadcrumb({ path }: { path: IFileNode[] }) {
-  return (
-    <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-      {path.map((node, i) => (
-        <span key={node.id} className="flex items-center gap-1">
-          {i > 0 && <ChevronRight className="size-3" />}
-          <span className={i === path.length - 1 ? 'text-foreground font-bold' : ''}>
-            {node.name}
-          </span>
-        </span>
-      ))}
-    </div>
-  );
+function DownloadText(fileName: string, content: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' }));
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
-// ── 日志级别配置 ────────────────────────────────────────────
+function LevelBadge({ level }: { level: PrototypeLogFile['level'] }) {
+  const className = {
+    INFO: 'border-primary/30 bg-primary/5 text-primary',
+    WARN: 'border-warning/30 bg-warning/10 text-warning',
+    ERROR: 'border-destructive/30 bg-destructive/5 text-destructive',
+    DEBUG: 'border-muted-foreground/30 bg-muted text-muted-foreground',
+  }[level];
+  return <Badge variant="outline" className={`text-[10px] ${className}`}>{level}</Badge>;
+}
 
-const LOG_LEVEL_CONFIG: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string; bg: string }> = {
-  INFO: { icon: Info, color: 'text-[#00B894]', bg: 'bg-[#00B894]/10' },
-  WARN: { icon: AlertTriangle, color: 'text-[#F97316]', bg: 'bg-[#F97316]/10' },
-  ERROR: { icon: AlertCircle, color: 'text-[#EF4444]', bg: 'bg-[#EF4444]/10' },
-  DEBUG: { icon: Bug, color: 'text-[#6366F1]', bg: 'bg-[#6366F1]/10' },
-};
+function FileQueryPanel({ kind, title, description }: { kind: PrototypeLogKind; title: string; description: string }) {
+  const [files, setFiles] = useState<PrototypeLogFile[]>([]);
+  const [query, setQuery] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [previewPath, setPreviewPath] = useState<string | null>(null);
+  const [preview, setPreview] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
-// ── 主组件 ──────────────────────────────────────────────────
-
-export default function FileLogPage() {
-  // 文件系统状态
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['1']));
-  const [selectedDirId, setSelectedDirId] = useState<string>('1');
-  const [fileSearch, setFileSearch] = useState('');
-  const [previewFile, setPreviewFile] = useState<IFileNode | null>(null);
-
-  // 日志状态
-  const [logLevel, setLogLevel] = useState<string>('all');
-  const [logSearch, setLogSearch] = useState('');
-  const [selectedLog, setSelectedLog] = useState<ILogEntry | null>(null);
-  const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
-
-  // Tab
-  const [activeTab, setActiveTab] = useState<'files' | 'logs'>('files');
-
-  // 构建路径
-  const buildPath = (targetId: string, nodes: IFileNode[]): IFileNode[] => {
-    for (const node of nodes) {
-      if (node.id === targetId) return [node];
-      if (node.children) {
-        const childPath = buildPath(targetId, node.children);
-        if (childPath.length) return [node, ...childPath];
-      }
-    }
-    return [];
-  };
-
-  const currentPath = buildPath(selectedDirId, MOCK_FILES);
-  const selectedDir = currentPath[currentPath.length - 1];
-
-  // 当前目录下的文件列表
-  const currentFiles = useMemo(() => {
-    if (!selectedDir || !selectedDir.children) return [];
-    return selectedDir.children.filter(
-      (f) => !fileSearch || f.name.toLowerCase().includes(fileSearch.toLowerCase()),
-    );
-  }, [selectedDir, fileSearch]);
-
-  // 日志筛选
-  const filteredLogs = useMemo(() => {
-    return MOCK_LOGS.filter((log) => {
-      if (logLevel !== 'all' && log.level !== logLevel) return false;
-      if (logSearch && !log.summary.toLowerCase().includes(logSearch.toLowerCase()) && !log.source.toLowerCase().includes(logSearch.toLowerCase())) return false;
-      return true;
-    });
-  }, [logLevel, logSearch]);
-
-  const toggleExpand = (id: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleLogSelect = (id: string) => {
-    setSelectedLogIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleAllLogs = () => {
-    if (selectedLogIds.size === filteredLogs.length) {
-      setSelectedLogIds(new Set());
-    } else {
-      setSelectedLogIds(new Set(filteredLogs.map((l) => l.id)));
+  const load = async () => {
+    setLoading(true);
+    try {
+      setFiles(await GetPrototypeLogFiles(kind));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '加载日志文件失败');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const exportLogs = () => {
-    const logsToExport = filteredLogs.filter((l) => selectedLogIds.has(l.id));
-    if (logsToExport.length === 0) {
-      toast.info('请先选择要导出的日志');
+  useEffect(() => {
+    void load();
+  }, [kind]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  useEffect(() => {
+    if (!previewPath) {
+      setPreview('');
       return;
     }
-    const content = logsToExport
-      .map((l) => `[${l.timestamp}] [${l.level}] [${l.source}] ${l.summary}\n${l.detail}`)
-      .join('\n\n---\n\n');
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `logs_export_${Date.now()}.log`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`已导出 ${logsToExport.length} 条日志`);
+    void GetPrototypeLogPreview(previewPath)
+      .then(setPreview)
+      .catch(() => setPreview('日志预览加载失败'));
+  }, [previewPath]);
+
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) {
+      return files;
+    }
+    return files.filter((file) => `${file.name} ${file.source} ${file.level}`.toLowerCase().includes(normalized));
+  }, [files, query]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const visibleFiles = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const toggleSelection = (path: string) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
   };
 
-  const downloadFile = (file: IFileNode) => {
-    const content = `// Mock content of ${file.name}\n// Size: ${file.size}\n// Modified: ${file.modifiedTime}`;
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = file.name;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`已下载 ${file.name}`);
+  const exportSelected = async () => {
+    const paths = selected.size > 0 ? [...selected] : visibleFiles.map((file) => file.path);
+    if (paths.length === 0) {
+      toast.info('没有可导出的日志文件');
+      return;
+    }
+    const content = await Promise.all(paths.map(async (path) => `# ${path}\n${await GetPrototypeLogPreview(path)}`));
+    DownloadText(`CT16_日志导出_${Date.now()}.log`, content.join('\n\n'));
+    toast.success(`已导出 ${paths.length} 个日志文件`);
   };
 
   return (
-    <div className="flex h-[calc(100vh-5rem)] gap-4">
-      {/* ── 左侧：文件目录树 ── */}
-      <Card className="w-[240px] shrink-0 rounded-2xl border border-border/60 shadow-sm flex flex-col overflow-hidden">
-        <div className="px-3 py-3 border-b border-border/40">
-          <div className="text-xs font-black text-muted-foreground uppercase tracking-wider">文件系统</div>
+    <Card className="h-full border-border/40 bg-card/60">
+      <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-base"><FileSearch className="size-4 text-primary" />{title}</CardTitle>
+          <CardDescription className="mt-1">{description}</CardDescription>
         </div>
-        <div className="flex-1 overflow-y-auto px-1 py-2">
-          {MOCK_FILES.map((node) => (
-            <FileTreeNode
-              key={node.id}
-              node={node}
-              depth={0}
-              selectedId={selectedDirId}
-              onSelect={(n) => {
-                if (n.type === 'directory') setSelectedDirId(n.id);
-              }}
-              expandedIds={expandedIds}
-              onToggle={toggleExpand}
-            />
-          ))}
+        <div className="flex shrink-0 gap-2">
+          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+            <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />刷新
+          </Button>
+          <Button size="sm" onClick={() => void exportSelected()}><Download className="size-3.5" />导出</Button>
         </div>
-      </Card>
-
-      {/* ── 右侧：内容区 ── */}
-      <div className="flex-1 flex flex-col gap-4 min-w-0">
-        {/* Tab 切换 + 搜索 */}
-        <Card className="rounded-2xl border border-border/60 shadow-sm">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-4">
-              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'files' | 'logs')}>
-                <TabsList className="h-9">
-                  <TabsTrigger value="files" className="text-xs font-bold">文件列表</TabsTrigger>
-                  <TabsTrigger value="logs" className="text-xs font-bold">日志列表</TabsTrigger>
-                </TabsList>
-              </Tabs>
-              {activeTab === 'files' && <Breadcrumb path={currentPath} />}
-            </div>
-            <div className="flex items-center gap-2">
-              {activeTab === 'files' ? (
-                <div className="relative w-52">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    value={fileSearch}
-                    onChange={(e) => setFileSearch(e.target.value)}
-                    placeholder="搜索文件..."
-                    className="h-8 pl-9 text-xs"
-                  />
-                </div>
-              ) : (
-                <>
-                  <div className="relative w-52">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      value={logSearch}
-                      onChange={(e) => setLogSearch(e.target.value)}
-                      placeholder="搜索日志..."
-                      className="h-8 pl-9 text-xs"
-                    />
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-xs"
-                    onClick={exportLogs}
-                    disabled={selectedLogIds.size === 0}
-                  >
-                    <Download className="size-3 mr-1" />
-                    导出 ({selectedLogIds.size})
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </Card>
-
-        {/* 内容表格 */}
-        <Card className="flex-1 rounded-2xl border border-border/60 shadow-sm overflow-hidden flex flex-col min-h-0">
-          {activeTab === 'files' ? (
-            <>
-              {/* 文件列表 */}
-              <div className="flex-1 overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-8" />
-                      <TableHead className="text-xs font-black">名称</TableHead>
-                      <TableHead className="text-xs font-black w-20">大小</TableHead>
-                      <TableHead className="text-xs font-black w-40">修改时间</TableHead>
-                      <TableHead className="text-xs font-black w-24 text-right">操作</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {currentFiles.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-12 text-xs">
-                          暂无文件
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      currentFiles.map((file) => (
-                        <TableRow key={file.id} className="hover:bg-muted/50 cursor-pointer">
-                          <TableCell>
-                            {file.type === 'directory' ? (
-                              <Folder className="size-4 text-[#00B894]" />
-                            ) : (
-                              <FileText className="size-4 text-muted-foreground" />
-                            )}
-                          </TableCell>
-                          <TableCell
-                            className="text-xs font-bold"
-                            onClick={() => {
-                              if (file.type === 'directory') setSelectedDirId(file.id);
-                              else setPreviewFile(file);
-                            }}
-                          >
-                            <span className={file.type === 'directory' ? 'text-[#00B894] cursor-pointer hover:underline' : 'cursor-pointer hover:text-primary'}>
-                              {file.name}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground tabular-nums">
-                            {file.size || '--'}
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{file.modifiedTime}</TableCell>
-                          <TableCell className="text-right">
-                            {file.type === 'file' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs"
-                                onClick={() => downloadFile(file)}
-                              >
-                                <Download className="size-3 mr-1" />
-                                下载
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* 日志级别筛选 */}
-              <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border/40">
-                {(['all', 'INFO', 'WARN', 'ERROR', 'DEBUG'] as const).map((level) => (
-                  <button
-                    key={level}
-                    onClick={() => setLogLevel(level)}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
-                      logLevel === level
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    {level === 'all' ? '全部' : level}
-                  </button>
-                ))}
-                <div className="flex-1" />
-                <button
-                  onClick={toggleAllLogs}
-                  className="text-[10px] font-medium text-muted-foreground hover:text-foreground flex items-center gap-1"
-                >
-                  {selectedLogIds.size === filteredLogs.length && filteredLogs.length > 0 ? (
-                    <CheckSquare className="size-3 text-primary" />
-                  ) : (
-                    <Square className="size-3" />
-                  )}
-                  全选
-                </button>
-              </div>
-              {/* 日志列表 */}
-              <div className="flex-1 overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-8" />
-                      <TableHead className="text-xs font-black w-40">时间</TableHead>
-                      <TableHead className="text-xs font-black w-16">级别</TableHead>
-                      <TableHead className="text-xs font-black w-24">来源</TableHead>
-                      <TableHead className="text-xs font-black">摘要</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredLogs.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-12 text-xs">
-                          暂无日志
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredLogs.map((log) => {
-                        const cfg = LOG_LEVEL_CONFIG[log.level];
-                        const Icon = cfg.icon;
-                        const isSelected = selectedLogIds.has(log.id);
-                        return (
-                          <TableRow
-                            key={log.id}
-                            className={`hover:bg-muted/50 cursor-pointer ${isSelected ? 'bg-primary/5' : ''}`}
-                            onClick={() => setSelectedLog(log)}
-                          >
-                            <TableCell onClick={(e) => { e.stopPropagation(); toggleLogSelect(log.id); }}>
-                              {isSelected ? (
-                                <CheckSquare className="size-3.5 text-primary" />
-                              ) : (
-                                <Square className="size-3.5 text-muted-foreground" />
-                              )}
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground font-mono tabular-nums">
-                              {log.timestamp}
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={`text-[10px] font-black ${cfg.color} ${cfg.bg}`}>
-                                <Icon className="size-2.5 mr-0.5" />
-                                {log.level}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs font-medium">{log.source}</TableCell>
-                            <TableCell className="text-xs truncate max-w-[300px]">{log.summary}</TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
-          )}
-        </Card>
-
-        {/* 底部预览区 */}
-        {(previewFile || selectedLog) && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="shrink-0"
-          >
-            <Card className="rounded-2xl border border-border/60 shadow-sm p-4 max-h-[200px] overflow-y-auto">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs font-black text-muted-foreground uppercase tracking-wider">
-                  {previewFile ? '文件预览' : '日志详情'}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-[10px]"
-                  onClick={() => { setPreviewFile(null); setSelectedLog(null); }}
-                >
-                  关闭
-                </Button>
-              </div>
-              {previewFile && (
-                <div className="space-y-2">
-                  <div className="text-sm font-bold">{previewFile.name}</div>
-                  <div className="flex gap-4 text-xs text-muted-foreground">
-                    <span>大小：{previewFile.size}</span>
-                    <span>修改时间：{previewFile.modifiedTime}</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-muted/50 text-xs font-mono text-muted-foreground">
-                    {`// Mock preview of ${previewFile.name}\n// This is a simulated file content preview.\n// In production, this would display the actual file contents.`}
-                  </div>
-                </div>
-              )}
-              {selectedLog && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    {(() => {
-                      const cfg = LOG_LEVEL_CONFIG[selectedLog.level];
-                      const Icon = cfg.icon;
-                      return (
-                        <Badge className={`text-[10px] font-black ${cfg.color} ${cfg.bg}`}>
-                          <Icon className="size-2.5 mr-0.5" />
-                          {selectedLog.level}
-                        </Badge>
-                      );
-                    })()}
-                    <span className="text-xs text-muted-foreground">{selectedLog.source}</span>
-                    <span className="text-xs text-muted-foreground font-mono">{selectedLog.timestamp}</span>
-                  </div>
-                  <div className="text-sm font-bold">{selectedLog.summary}</div>
-                  <div className="p-3 rounded-xl bg-muted/50 text-xs font-mono text-muted-foreground whitespace-pre-wrap">
-                    {selectedLog.detail}
-                  </div>
-                </div>
-              )}
-            </Card>
-          </motion.div>
-        )}
-      </div>
-
-      {/* ── 文件预览弹窗 ── */}
-      <Dialog open={!!previewFile} onOpenChange={(o) => !o && setPreviewFile(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-black">{previewFile?.name}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="flex gap-4 text-xs text-muted-foreground">
-              <span>大小：{previewFile?.size}</span>
-              <span>修改时间：{previewFile?.modifiedTime}</span>
-            </div>
-            <div className="p-4 rounded-xl bg-muted/50 text-xs font-mono text-muted-foreground whitespace-pre-wrap max-h-96 overflow-y-auto">
-              {previewFile && `// Mock preview of ${previewFile.name}\n// Size: ${previewFile.size}\n// Modified: ${previewFile.modifiedTime}\n\n// This is a simulated file content preview.\n// In production, this would display the actual file contents.\n\n{\n  "version": "1.0.0",\n  "timestamp": "${new Date().toISOString()}",\n  "data": {\n    "status": "ok",\n    "records": 128\n  }\n}`}
-            </div>
-          </div>
-        </DialogContent>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="relative max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input value={query} onChange={(event) => setQuery(event.target.value)} className="h-9 pl-9" placeholder="搜索文件名、来源或级别" />
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-border/60">
+          <Table>
+            <TableHeader><TableRow><TableHead className="w-10" /><TableHead>日志文件</TableHead><TableHead>级别</TableHead><TableHead>来源</TableHead><TableHead>大小</TableHead><TableHead>更新时间</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {loading ? <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">正在加载日志文件…</TableCell></TableRow> : null}
+              {!loading && visibleFiles.length === 0 ? <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">未找到匹配的日志文件</TableCell></TableRow> : null}
+              {!loading && visibleFiles.map((file) => <TableRow key={file.path}>
+                <TableCell><input type="checkbox" checked={selected.has(file.path)} onChange={() => toggleSelection(file.path)} aria-label={`选择 ${file.name}`} /></TableCell>
+                <TableCell className="font-medium"><span className="flex items-center gap-2"><FileText className="size-3.5 text-primary" />{file.name}</span></TableCell>
+                <TableCell><LevelBadge level={file.level} /></TableCell>
+                <TableCell className="text-muted-foreground">{file.source}</TableCell>
+                <TableCell className="text-muted-foreground">{FormatBytes(file.size)}</TableCell>
+                <TableCell className="text-muted-foreground">{file.modifiedAt}</TableCell>
+                <TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => setPreviewPath(file.path)}>预览</Button></TableCell>
+              </TableRow>)}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>共 {filtered.length} 个文件，已选择 {selected.size} 个</span>
+          <div className="flex items-center gap-2"><Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>上一页</Button><span>{page} / {pageCount}</span><Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>下一页</Button></div>
+        </div>
+      </CardContent>
+      <Dialog open={!!previewPath} onOpenChange={(open) => !open && setPreviewPath(null)}>
+        <DialogContent className="max-w-4xl"><DialogHeader><DialogTitle>日志预览</DialogTitle></DialogHeader><pre className="max-h-[60vh] overflow-auto rounded-md bg-muted p-4 text-xs leading-6 text-foreground">{preview || '正在加载…'}</pre></DialogContent>
       </Dialog>
-    </div>
+    </Card>
   );
+}
+
+function StreamPanel({ kind, title, description }: { kind: 'kernel' | 'system'; title: string; description: string }) {
+  const [running, setRunning] = useState(true);
+  const [keyword, setKeyword] = useState('');
+  const [lines, setLines] = useState<string[]>(() => Array.from({ length: 8 }, (_, index) => CreatePrototypeLogLine(kind, index)));
+  const sequenceRef = useRef(lines.length);
+
+  useEffect(() => {
+    if (!running) {
+      return undefined;
+    }
+    const timer = window.setInterval(() => {
+      setLines((current) => [...current.slice(-199), CreatePrototypeLogLine(kind, sequenceRef.current++)]);
+    }, 1_300);
+    return () => window.clearInterval(timer);
+  }, [kind, running]);
+
+  const displayLines = useMemo(() => lines.filter((line) => line.toLowerCase().includes(keyword.trim().toLowerCase())), [keyword, lines]);
+  const exportLines = () => {
+    if (displayLines.length === 0) {
+      toast.info('没有可导出的日志内容');
+      return;
+    }
+    DownloadText(`CT16_${kind}_日志_${Date.now()}.log`, displayLines.join('\n'));
+    toast.success(`已导出 ${displayLines.length} 行日志`);
+  };
+
+  return <Card className="h-full border-border/40 bg-card/60"><CardHeader className="flex-row items-start justify-between gap-4 space-y-0"><div><CardTitle className="flex items-center gap-2 text-base"><Terminal className="size-4 text-primary" />{title}</CardTitle><CardDescription className="mt-1">{description}</CardDescription></div><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setRunning((value) => !value)}>{running ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}{running ? '暂停' : '继续'}</Button><Button variant="outline" size="sm" onClick={() => setLines([])}><Trash2 className="size-3.5" />清空</Button><Button size="sm" onClick={exportLines}><Download className="size-3.5" />导出</Button></div></CardHeader><CardContent className="space-y-4"><div className="relative max-w-md"><Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" /><Input value={keyword} onChange={(event) => setKeyword(event.target.value)} className="h-9 pl-9" placeholder="过滤实时日志内容" /></div><div className="h-[430px] overflow-auto rounded-lg border border-border/60 bg-muted/30 p-4 font-mono text-xs leading-6"><div className="mb-3 flex items-center gap-2 font-sans text-muted-foreground"><span className={`size-2 rounded-full ${running ? 'bg-success animate-pulse' : 'bg-muted-foreground'}`} />{running ? '正在接收模拟实时日志' : '日志流已暂停'} · {displayLines.length} 行</div>{displayLines.length === 0 ? <p className="text-muted-foreground">暂无匹配日志</p> : displayLines.map((line, index) => <p key={`${line}-${index}`} className="border-b border-border/30 py-0.5 last:border-0">{line}</p>)}</div></CardContent></Card>;
+}
+
+export default function FileLogPage() {
+  return <div className="flex h-full min-h-[620px] flex-col gap-6"><div><h1 className="text-lg font-semibold">文件日志</h1><p className="mt-1 text-sm text-muted-foreground">查询、预览、导出设备日志，并模拟内核与系统实时日志分析。</p></div><Tabs defaultValue="file-query" className="flex min-h-0 flex-1 flex-col gap-4"><TabsList className="h-auto w-full max-w-3xl justify-start rounded-2xl bg-muted/60 p-1"><TabsTrigger value="file-query" className="flex-1 gap-1.5 rounded-xl py-2.5 text-xs"><FileSearch className="size-3.5" />日志文件查询</TabsTrigger><TabsTrigger value="exception-query" className="flex-1 gap-1.5 rounded-xl py-2.5 text-xs"><AlertTriangle className="size-3.5" />异常日志查询</TabsTrigger><TabsTrigger value="kernel" className="flex-1 gap-1.5 rounded-xl py-2.5 text-xs"><Terminal className="size-3.5" />内核日志分析</TabsTrigger><TabsTrigger value="system" className="flex-1 gap-1.5 rounded-xl py-2.5 text-xs"><Activity className="size-3.5" />系统日志分析</TabsTrigger></TabsList><TabsContent value="file-query" className="mt-0 flex-1"><FileQueryPanel kind="file" title="日志文件查询" description="浏览设备日志文件，支持批量导出与内容预览。" /></TabsContent><TabsContent value="exception-query" className="mt-0 flex-1"><FileQueryPanel kind="exception" title="异常日志查询" description="聚焦告警和异常文件，便于快速定位问题。" /></TabsContent><TabsContent value="kernel" className="mt-0 flex-1"><StreamPanel kind="kernel" title="内核日志分析" description="以原型数据模拟内核日志持续输出与过滤。" /></TabsContent><TabsContent value="system" className="mt-0 flex-1"><StreamPanel kind="system" title="系统日志分析" description="以原型数据模拟系统服务日志持续输出与过滤。" /></TabsContent></Tabs></div>;
 }

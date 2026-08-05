@@ -33,9 +33,23 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Textarea } from '@/components/ui/textarea';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  ApplyPrototypeFlowProposal,
+  CreatePrototypeFlowProposal,
+  CreatePrototypeNodeDraft,
+  DeletePrototypeDeviceNode,
+  GetPrototypeBoards,
+  GetPrototypeDeviceNodes,
+  SavePrototypeDeviceNode,
+  TestPrototypeDeviceNode,
+  type PrototypeBoard,
+  type PrototypeDeviceNode,
+  type PrototypeFlowProposal,
+  type PrototypeNodeDraft,
+  type PrototypeNodeMode,
+} from '@/services/prototypeRuntime';
 
 const EDITOR_PATH = import.meta.env.VITE_NODE_RED_PATH || '/node-red/';
-const WORKFLOW_AI_API_PATH = import.meta.env.VITE_WORKFLOW_AI_API_PATH || '/api/workflow-ai';
 const HEALTH_INTERVAL_MS = 15000;
 const HEALTH_TIMEOUT_MS = 5000;
 const HEALTH_FAILURE_THRESHOLD = 3;
@@ -51,55 +65,20 @@ interface ChatMessage {
   content: string;
 }
 
-interface WorkflowProposal {
-  id: string;
-  mode: ProposalMode;
-  summary: string;
-  assistantMessage?: string;
-  nodeCount?: number;
-  connectionCount?: number;
-  warnings?: string[];
-  targetDirectory?: string;
-  files?: string[];
+type WorkflowProposal = PrototypeFlowProposal;
+type BoardProfile = PrototypeBoard;
+type DeviceNode = PrototypeDeviceNode;
+type DeviceNodeDraft = Omit<PrototypeNodeDraft, 'mode'> & { mode: string };
+
+function EnsureTrailingSlash(value: string): string {
+  return value.endsWith('/') ? value : `${value}/`;
 }
 
-interface DevicePin {
-  id: string;
-  label: string;
-  capabilities: string[];
-}
-
-interface BoardProfile {
-  id: string;
-  name: string;
-  pins: DevicePin[];
-}
-
-interface DeviceNode {
-  id: string;
-  name: string;
-  description: string;
-  boardId: string;
-  pinId: string;
-  mode: string;
-  parameters: Record<string, string>;
-  updatedAt: string;
-  lastTest?: { status: 'success' | 'error' | 'unsupported'; message: string; testedAt: string };
-}
-
-interface DeviceNodeDraft {
-  name: string;
-  description: string;
-  boardId: string;
-  pinId: string;
-  mode: string;
-  parameters: Record<string, string>;
-}
-
-interface DeviceNodeProposal {
-  id: string;
-  assistantMessage?: string;
-  draft: DeviceNodeDraft;
+function NormalizeDeviceNodeMode(value: string): PrototypeNodeMode {
+  if (value === 'output' || value === 'analog') {
+    return value;
+  }
+  return 'input';
 }
 
 interface AssistantAttachment {
@@ -109,28 +88,12 @@ interface AssistantAttachment {
   content: string;
 }
 
-function EnsureTrailingSlash(value: string): string {
-  return value.endsWith('/') ? value : `${value}/`;
-}
-
 function CreateMessage(role: MessageRole, content: string): ChatMessage {
   return { id: `${role}-${Date.now()}-${Math.random().toString(16).slice(2)}`, role, content };
 }
 
-function GetApiUrl(path: string): string {
-  return `${EnsureTrailingSlash(WORKFLOW_AI_API_PATH)}${path}`;
-}
-
 function GetErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : '请求失败，请稍后重试。';
-}
-
-async function GetJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { credentials: 'same-origin' });
-  if (!response.ok) {
-    throw new Error((await response.text()) || '服务请求失败。');
-  }
-  return response.json() as Promise<T>;
 }
 
 function FlowAssistant({ onApplied, onCollapse }: { onApplied: () => void; onCollapse: () => void }) {
@@ -199,15 +162,9 @@ function FlowAssistant({ onApplied, onCollapse }: { onApplied: () => void; onCol
     setProposal(null);
     setIsGenerating(true);
     try {
-      const response = await fetch(GetApiUrl('proposals'), {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ mode: 'flow', messages: nextMessages.map(({ role, content }) => ({ role, content })), attachments }),
-      });
-      if (!response.ok) throw new Error((await response.text()) || '生成提案失败。');
-      const payload = await response.json() as { proposal: WorkflowProposal };
-      if (!payload.proposal?.id) throw new Error('服务未返回有效提案。');
-      setProposal(payload.proposal);
-      setMessages((current) => [...current, CreateMessage('assistant', payload.proposal.assistantMessage || '提案已生成，请确认后应用。')]);
+      const nextProposal = await CreatePrototypeFlowProposal(prompt);
+      setProposal(nextProposal);
+      setMessages((current) => [...current, CreateMessage('assistant', nextProposal.assistantMessage || '提案已生成，请确认后应用。')]);
       setAttachments([]);
     } catch (requestError) {
       setError(GetErrorMessage(requestError));
@@ -221,12 +178,8 @@ function FlowAssistant({ onApplied, onCollapse }: { onApplied: () => void; onCol
     setIsApplying(true);
     setError('');
     try {
-      const response = await fetch(GetApiUrl(`proposals/${proposal.id}/apply`), {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({}),
-      });
-      if (!response.ok) throw new Error((await response.text()) || '应用提案失败。');
-      setMessages((current) => [...current, CreateMessage('assistant', '提案已应用，编辑器正在刷新。')]);
+      const result = await ApplyPrototypeFlowProposal(proposal);
+      setMessages((current) => [...current, CreateMessage('assistant', result.message)]);
       setProposal(null);
       onApplied();
     } catch (requestError) {
@@ -315,12 +268,9 @@ function DeviceNodeEditorPage({ node, boards, onBack, onSave, onDelete, onTest }
     const nextMessages = [...messages, CreateMessage('user', prompt)];
     setMessages(nextMessages); setInput(''); setError(''); setIsGenerating(true);
     try {
-      const response = await fetch(GetApiUrl('device-node-proposals'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ prompt, nodeId: node?.id, boards, messages: nextMessages.map(({ role, content }) => ({ role, content })), attachments }) });
-      if (!response.ok) throw new Error((await response.text()) || '生成节点配置失败。');
-      const payload = await response.json() as { proposal: DeviceNodeProposal };
-      if (!payload.proposal?.draft) throw new Error('服务未返回有效节点配置。');
-      setDraft((current) => ({ ...current, ...payload.proposal.draft, parameters: payload.proposal.draft.parameters || current.parameters }));
-      setMessages((current) => [...current, CreateMessage('assistant', payload.proposal.assistantMessage || '节点配置已回填，请确认后保存。')]);
+      const nextDraft = await CreatePrototypeNodeDraft(prompt, boards);
+      setDraft((current) => ({ ...current, ...nextDraft, parameters: nextDraft.parameters || current.parameters }));
+      setMessages((current) => [...current, CreateMessage('assistant', '节点配置已回填，请确认后保存。')]);
       setAttachments([]);
     } catch (requestError) { setError(GetErrorMessage(requestError)); } finally { setIsGenerating(false); }
   };
@@ -330,7 +280,7 @@ function DeviceNodeEditorPage({ node, boards, onBack, onSave, onDelete, onTest }
   return <div className="grid h-full min-h-0 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
     <main className="min-h-0 overflow-y-auto pr-1"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3"><Button variant="ghost" size="sm" onClick={onBack}><ChevronLeft className="size-4" />返回节点列表</Button><div className="flex items-center gap-2">{node && <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => { if (window.confirm(`确认删除节点“${node.name}”？`)) void onDelete(node); }}><Trash2 className="size-3.5" />删除</Button>}<Button size="sm" onClick={() => void save()} disabled={isSaving || !draft.name || !draft.boardId || !draft.pinId}>{isSaving && <LoaderCircle className="size-3.5 animate-spin" />}{node ? '保存节点' : '创建节点'}</Button></div></div>
       {error && <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{error}</div>}
-      <div className="mt-5 grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><Label htmlFor="device-node-name">节点名称</Label><Input id="device-node-name" className="mt-1.5" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></div><div className="sm:col-span-2"><Label htmlFor="device-node-description">节点说明</Label><Textarea id="device-node-description" className="mt-1.5 min-h-20" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></div><div><Label>板卡</Label><Select value={draft.boardId} onValueChange={(boardId) => setDraft({ ...draft, boardId, pinId: '' })}><SelectTrigger className="mt-1.5"><SelectValue placeholder="选择板卡" /></SelectTrigger><SelectContent>{boards.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div><div><Label>引脚</Label><Select value={draft.pinId} onValueChange={(pinId) => setDraft({ ...draft, pinId })}><SelectTrigger className="mt-1.5"><SelectValue placeholder="选择引脚" /></SelectTrigger><SelectContent>{board?.pins.map((pin) => <SelectItem key={pin.id} value={pin.id}>{pin.label} ({pin.capabilities.join('、')})</SelectItem>)}</SelectContent></Select></div><div><Label>工作模式</Label><Select value={draft.mode} onValueChange={(mode) => setDraft({ ...draft, mode })}><SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="input">输入</SelectItem><SelectItem value="output">输出</SelectItem><SelectItem value="analog">模拟量</SelectItem></SelectContent></Select></div></div>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><Label htmlFor="device-node-name">节点名称</Label><Input id="device-node-name" className="mt-1.5" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></div><div className="sm:col-span-2"><Label htmlFor="device-node-description">节点说明</Label><Textarea id="device-node-description" className="mt-1.5 min-h-20" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></div><div><Label>板卡</Label><Select value={draft.boardId} onValueChange={(boardId) => setDraft({ ...draft, boardId, pinId: '' })}><SelectTrigger className="mt-1.5"><SelectValue placeholder="选择板卡" /></SelectTrigger><SelectContent>{boards.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div><div><Label>引脚</Label><Select value={draft.pinId} onValueChange={(pinId) => setDraft({ ...draft, pinId })}><SelectTrigger className="mt-1.5"><SelectValue placeholder="选择引脚" /></SelectTrigger><SelectContent>{board?.pins.map((pin) => <SelectItem key={pin.id} value={pin.id}>{pin.label} ({pin.capabilities.join('、')})</SelectItem>)}</SelectContent></Select></div><div><Label>工作模式</Label><Select value={draft.mode} onValueChange={(mode) => setDraft({ ...draft, mode: mode as DeviceNodeDraft['mode'] })}><SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="input">输入</SelectItem><SelectItem value="output">输出</SelectItem><SelectItem value="analog">模拟量</SelectItem></SelectContent></Select></div></div>
       <section className="mt-6 border-t border-border/60 pt-5"><div className="flex items-center justify-between"><div className="flex items-center gap-2"><Code2 className="size-4 text-primary" /><h3 className="text-sm font-semibold">节点执行脚本</h3></div><span className="text-[11px] text-muted-foreground">根据当前配置生成</span></div><Textarea readOnly value={BuildDeviceScript(draft)} className="mt-3 min-h-52 resize-y bg-muted/30 font-mono text-xs leading-5" /></section>
       <section className="mt-6 border-t border-border/60 pt-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-sm font-semibold">单节点测试</h3><p className="mt-1 text-xs text-muted-foreground">验证当前已保存节点的引脚操作和执行环境。</p></div><Button variant="outline" size="sm" onClick={() => void test()} disabled={isTesting || !node}>{isTesting ? <LoaderCircle className="size-3.5 animate-spin" /> : <Activity className="size-3.5" />}{node?.mode === 'output' ? '执行写入测试' : '执行读取测试'}</Button></div>{!node && <p className="mt-3 text-xs text-muted-foreground">保存节点后可执行测试。</p>}{testResult && <div className={`mt-3 rounded-md border p-3 text-xs ${testResult.status === 'success' ? 'border-success/30 bg-success/5 text-success' : 'border-warning/30 bg-warning/5 text-warning'}`}><p>{testResult.message}</p><p className="mt-1 opacity-80">{new Date(testResult.testedAt).toLocaleString('zh-CN')}</p></div>}</section>
     </main>
@@ -352,9 +302,9 @@ function DeviceNodeWorkspace({ apiUrl }: { apiUrl: string }) {
   const load = async () => {
     setIsLoading(true);
     try {
-      const [nodeData, boardData] = await Promise.all([GetJson<{ nodes: DeviceNode[] }>(`${apiUrl}device-nodes`), GetJson<{ boards: BoardProfile[] }>(`${apiUrl}device-nodes/boards`)]);
-      setNodes(nodeData.nodes);
-      setBoards(boardData.boards);
+      const [nodeData, boardData] = await Promise.all([GetPrototypeDeviceNodes(), GetPrototypeBoards()]);
+      setNodes(nodeData);
+      setBoards(boardData);
       setError('');
     } catch (requestError) { setError(GetErrorMessage(requestError)); } finally { setIsLoading(false); }
   };
@@ -364,30 +314,27 @@ function DeviceNodeWorkspace({ apiUrl }: { apiUrl: string }) {
   const selectedBoard = boards.find((board) => board.id === selectedNode?.boardId);
 
   const save = async (draft: DeviceNodeDraft) => {
-    const isNew = !selectedNode;
-    const response = await fetch(isNew ? `${apiUrl}device-nodes` : `${apiUrl}device-nodes/${selectedNode.id}`, { method: isNew ? 'POST' : 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(draft) });
-    if (!response.ok) throw new Error((await response.text()) || '保存设备节点失败。');
-    const payload = await response.json() as { node: DeviceNode };
-    setSelectedNode(payload.node);
+    const saved = await SavePrototypeDeviceNode(selectedNode?.id || null, {
+      ...draft,
+      mode: NormalizeDeviceNodeMode(draft.mode),
+    });
+    setSelectedNode(saved);
     setIsCreating(false);
     await load();
   };
 
   const remove = async (node: DeviceNode) => {
-    const response = await fetch(`${apiUrl}device-nodes/${node.id}`, { method: 'DELETE', credentials: 'same-origin' });
-    if (!response.ok) throw new Error((await response.text()) || '删除设备节点失败。');
+    await DeletePrototypeDeviceNode(node.id);
     setNodes((current) => current.filter((item) => item.id !== node.id));
     setSelectedNode(null);
   };
 
   const test = async (node: DeviceNode) => {
     try {
-      const response = await fetch(`${apiUrl}device-nodes/${node.id}/test`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ operation: node.mode === 'output' ? 'write' : 'read' }) });
-      const payload = await response.json() as { node?: DeviceNode; message?: string };
-      if (!response.ok) throw new Error(payload.message || '设备调试失败。');
-      if (payload.node) setSelectedNode(payload.node);
+      const updatedNode = await TestPrototypeDeviceNode(node.id);
+      setSelectedNode(updatedNode);
       await load();
-      return payload.node;
+      return updatedNode;
     } catch (requestError) { setError(GetErrorMessage(requestError)); throw requestError; }
   };
 
@@ -416,7 +363,20 @@ function DeviceNodeEditor({ open, node, boards, onOpenChange, onSave }: { open: 
   useEffect(() => { setDraft(node ? { name: node.name, description: node.description, boardId: node.boardId, pinId: node.pinId, mode: node.mode, parameters: node.parameters } : { name: '', description: '', boardId: boards[0]?.id || '', pinId: '', mode: 'input', parameters: {} }); setError(''); setAssistantMessage(''); setAiPrompt(''); }, [node, boards, open]);
   const board = boards.find((item) => item.id === draft.boardId);
   const save = async () => { setIsSaving(true); setError(''); try { await onSave(draft); onOpenChange(false); } catch (requestError) { setError(GetErrorMessage(requestError)); } finally { setIsSaving(false); } };
-  const generateDraft = async () => { if (!aiPrompt.trim() || isGenerating) return; setIsGenerating(true); setError(''); try { const response = await fetch(GetApiUrl('device-node-proposals'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ prompt: aiPrompt.trim(), nodeId: node?.id, boards }) }); if (!response.ok) throw new Error((await response.text()) || '生成设备节点提案失败。'); const payload = await response.json() as { proposal: DeviceNodeProposal }; if (!payload.proposal?.draft) throw new Error('服务未返回有效设备节点提案。'); setDraft((current) => ({ ...current, ...payload.proposal.draft, parameters: payload.proposal.draft.parameters || current.parameters })); setAssistantMessage(payload.proposal.assistantMessage || '配置草稿已回填，请检查后保存。'); } catch (requestError) { setError(GetErrorMessage(requestError)); } finally { setIsGenerating(false); } };
+  const generateDraft = async () => {
+    if (!aiPrompt.trim() || isGenerating) return;
+    setIsGenerating(true);
+    setError('');
+    try {
+      const nextDraft = await CreatePrototypeNodeDraft(aiPrompt.trim(), boards);
+      setDraft((current) => ({ ...current, ...nextDraft, parameters: nextDraft.parameters || current.parameters }));
+      setAssistantMessage('配置草稿已回填，请检查后保存。');
+    } catch (requestError) {
+      setError(GetErrorMessage(requestError));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
   return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent className="w-full overflow-y-auto p-0 sm:max-w-2xl"><SheetHeader className="border-b border-border p-5"><SheetTitle>{node ? '编辑设备节点' : '创建设备节点'}</SheetTitle><SheetDescription>AI 生成的配置需要人工确认，保存后可在调试页面手动验证设备引脚。</SheetDescription></SheetHeader><div className="grid gap-0 md:grid-cols-[minmax(0,1fr)_250px]"><div className="space-y-4 p-5">{error && <p className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">{error}</p>}<div><Label htmlFor="device-node-name">节点名称</Label><Input id="device-node-name" className="mt-1.5" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></div><div><Label htmlFor="device-node-description">节点说明</Label><Textarea id="device-node-description" className="mt-1.5" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></div><div><Label>板卡</Label><Select value={draft.boardId} onValueChange={(boardId) => setDraft({ ...draft, boardId, pinId: '' })}><SelectTrigger className="mt-1.5"><SelectValue placeholder="选择板卡" /></SelectTrigger><SelectContent>{boards.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent></Select></div><div><Label>引脚</Label><Select value={draft.pinId} onValueChange={(pinId) => setDraft({ ...draft, pinId })}><SelectTrigger className="mt-1.5"><SelectValue placeholder="选择引脚" /></SelectTrigger><SelectContent>{board?.pins.map((pin) => <SelectItem key={pin.id} value={pin.id}>{pin.label} ({pin.capabilities.join('、')})</SelectItem>)}</SelectContent></Select></div><div><Label>工作模式</Label><Select value={draft.mode} onValueChange={(mode) => setDraft({ ...draft, mode })}><SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="input">输入</SelectItem><SelectItem value="output">输出</SelectItem><SelectItem value="analog">模拟量</SelectItem></SelectContent></Select></div><Button className="w-full" onClick={() => void save()} disabled={isSaving || !draft.name || !draft.boardId || !draft.pinId}>{isSaving && <LoaderCircle className="size-4 animate-spin" />}{node ? '保存节点' : '创建节点'}</Button></div><aside className="border-t border-border bg-muted/20 p-5 md:border-t-0 md:border-l"><div className="flex items-center gap-2"><Bot className="size-4 text-primary" /><h3 className="text-sm font-semibold">节点配置助手</h3></div><p className="mt-2 text-xs leading-5 text-muted-foreground">描述设备用途，生成的配置会回填到左侧表单。</p><Textarea value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} placeholder="例如：创建用于控制告警灯的数字输出节点" className="mt-3 min-h-28 text-xs" /><Button className="mt-3 w-full" size="sm" variant="outline" onClick={() => void generateDraft()} disabled={!aiPrompt.trim() || isGenerating}>{isGenerating ? <LoaderCircle className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}生成配置</Button>{assistantMessage && <p className="mt-3 rounded-md border border-success/30 bg-success/5 p-2 text-xs leading-5 text-success">{assistantMessage}</p>}</aside></div></SheetContent></Sheet>;
 }
 

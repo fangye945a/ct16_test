@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,8 +19,9 @@ import {
   Package,
   MonitorCog,
 } from 'lucide-react';
-import { MOCK_SYSTEM_INFO, MOCK_SYSTEM_METRICS, MOCK_ALERT_EVENTS, type ISystemMetrics } from '@/data/dashboard';
+import { MOCK_SYSTEM_INFO, MOCK_SYSTEM_METRICS, MOCK_ALERT_EVENTS, type IAlertEvent, type ISystemInfo, type ISystemMetrics } from '@/data/dashboard';
 import { CHART_COLORS } from '@/lib/chart-colors';
+import { GetPrototypeOverview } from '@/services/prototypeRuntime';
 
 function formatUptime(ms: number): string {
   const days = Math.floor(ms / 86400000);
@@ -121,42 +122,34 @@ function MetricCard({
 
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<ISystemMetrics>(MOCK_SYSTEM_METRICS);
-  const [uptime, setUptime] = useState(Date.now() - new Date(MOCK_SYSTEM_INFO.startedAt).getTime());
+  const [systemInfo, setSystemInfo] = useState<ISystemInfo>(MOCK_SYSTEM_INFO);
+  const [alerts, setAlerts] = useState<IAlertEvent[]>(MOCK_ALERT_EVENTS);
+  const [uptime, setUptime] = useState(Date.now() - new Date(systemInfo.startedAt).getTime());
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setUptime(Date.now() - new Date(MOCK_SYSTEM_INFO.startedAt).getTime());
+      setUptime(Date.now() - new Date(systemInfo.startedAt).getTime());
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [systemInfo.startedAt]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setMetrics((prev) => {
-        const jitter = () => (Math.random() - 0.5) * 4;
-        const clamp = (v: number) => Math.max(0, Math.min(100, v));
-        const newCpu = clamp(prev.cpuUsage + jitter());
-        const newMem = clamp(prev.memoryUsage + jitter() * 0.5);
-        const newDisk = clamp(prev.diskUsage + jitter() * 0.2);
-        const newNetIn = Math.max(0, prev.networkIn + (Math.random() - 0.5) * 2);
-        const newNetOut = Math.max(0, prev.networkOut + (Math.random() - 0.5) * 1);
-
-        return {
-          ...prev,
-          cpuUsage: Math.round(newCpu * 10) / 10,
-          memoryUsage: Math.round(newMem * 10) / 10,
-          diskUsage: Math.round(newDisk * 10) / 10,
-          networkIn: Math.round(newNetIn * 10) / 10,
-          networkOut: Math.round(newNetOut * 10) / 10,
-          cpuTrend: [...prev.cpuTrend.slice(1), newCpu],
-          memoryTrend: [...prev.memoryTrend.slice(1), newMem],
-          diskTrend: [...prev.diskTrend.slice(1), newDisk],
-          networkTrend: [...prev.networkTrend.slice(1), (newNetIn + newNetOut)],
-          overallStatus: (newCpu > 85 || newMem > 90) ? 'warning' as const : (newCpu > 95 ? 'error' as const : 'normal' as const),
-        };
-      });
-    }, 3000);
-    return () => clearInterval(timer);
+    let active = true;
+    const refresh = async () => {
+      const overview = await GetPrototypeOverview();
+      if (!active) {
+        return;
+      }
+      setMetrics(overview.metrics);
+      setSystemInfo(overview.systemInfo);
+      setAlerts(overview.alerts);
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 3_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, []);
 
   const statusConfig = {
@@ -191,11 +184,11 @@ export default function DashboardPage() {
       {/* Device Info */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         {[
-          { icon: Server, label: '设备名称', value: MOCK_SYSTEM_INFO.deviceName },
-          { icon: Package, label: '型号', value: MOCK_SYSTEM_INFO.model },
-          { icon: Hash, label: '序列号', value: MOCK_SYSTEM_INFO.serialNumber },
-          { icon: MonitorCog, label: '系统版本', value: MOCK_SYSTEM_INFO.systemVersion },
-          { icon: Clock, label: '固件版本', value: MOCK_SYSTEM_INFO.firmwareVersion },
+          { icon: Server, label: '设备名称', value: systemInfo.deviceName },
+          { icon: Package, label: '型号', value: systemInfo.model },
+          { icon: Hash, label: '序列号', value: systemInfo.serialNumber },
+          { icon: MonitorCog, label: '系统版本', value: systemInfo.systemVersion },
+          { icon: Clock, label: '固件版本', value: systemInfo.firmwareVersion },
         ].map((item, i) => (
           <motion.div
             key={item.label}
@@ -268,7 +261,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y divide-border/30">
-            {MOCK_ALERT_EVENTS.map((alert, i) => (
+            {alerts.map((alert, i) => (
               <motion.div
                 key={alert.id}
                 initial={{ opacity: 0, x: -10 }}
