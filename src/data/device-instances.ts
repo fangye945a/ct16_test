@@ -15,6 +15,7 @@
 
 import { MOCK_DEVICE_MODELS, type IDataPoint, type IDeviceModel } from '@/data/device-models';
 import { MOCK_DEVICE_NODES, type IDeviceNode } from '@/data/topology';
+import type { IDeviceStatusError } from '@/services/dsdkErrorCodes';
 
 export const DEVICE_INSTANCES_STORAGE_KEY = 'zaihong:deviceInstances';
 export const DEVICE_INSTANCES_CHANGED_EVENT = 'zaihong:device-instances-changed';
@@ -41,6 +42,7 @@ export interface IDeviceInstance {
   displayUnit: string
   dataPointValues: Record<string, string>
   interfaceConfigs?: Record<string, string[]>
+  statusError?: IDeviceStatusError
   lastUpdate: string
   angle: number
   distance: number

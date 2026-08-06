@@ -72,6 +72,12 @@ import {
 import { toast } from 'sonner';
 import { type IDataPoint, type IDeviceModel, type IDeviceModelInterfaceConfig } from '@/data/device-models';
 import {
+  BuildDeviceStatusError,
+  ClassifyDsdkDeviceStatus,
+  DSDK_ERROR_DEFINITIONS,
+  GetDsdkErrorDefinition,
+} from '@/services/dsdkErrorCodes';
+import {
   BuildDataPointValues,
   DEVICE_INSTANCES_CHANGED_EVENT,
   GetDefaultDataPointValue,
@@ -332,6 +338,44 @@ function GetStatusClassName(status: DeviceStatus): string {
   return 'bg-muted text-muted-foreground';
 }
 
+function DeviceStatusBadge({
+  device,
+  onClick,
+}: {
+  device: IDeviceInstance
+  onClick?: () => void
+}) {
+  const badge = (
+    <Badge className={GetStatusClassName(device.status)}>
+      {device.status === 'warning' && <CircleAlert className="mr-1 size-3" />}
+      {GetStatusLabel(device.status)}
+    </Badge>
+  );
+  if (device.status !== 'warning' || !device.statusError || !onClick) {
+    return badge;
+  }
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-auto rounded-md p-0 hover:bg-transparent"
+      onClick={onClick}
+      aria-label={`查看设备「${device.name}」的告警详情`}
+    >
+      {badge}
+    </Button>
+  );
+}
+
+function FormatOccurredAt(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString('zh-CN', { hour12: false });
+}
+
 function GetDataPointValueError(dataPoint: IDataPoint, value: string): string | null {
   const trimmedValue = value.trim();
   if (dataPoint.dataType !== 'string' && !trimmedValue) {
@@ -561,6 +605,60 @@ function DeviceFormDialog({
   );
 }
 
+function DeviceStatusErrorDialog({
+  device,
+  open,
+  onClose,
+}: {
+  device: IDeviceInstance | null
+  open: boolean
+  onClose: () => void
+}) {
+  const statusError = device?.statusError;
+  if (!device || !statusError) {
+    return null;
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="max-w-lg border-border/40 bg-card/95">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CircleAlert className="size-5 text-warning" />
+            设备告警详情
+          </DialogTitle>
+          <DialogDescription>{device.name} · SN {device.serialNumber}</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-border/40 bg-muted/20 p-3">
+            <div className="text-xs text-muted-foreground">错误码</div>
+            <div className="mt-1 font-mono text-sm font-semibold">{statusError.code}</div>
+          </div>
+          <div className="rounded-xl border border-border/40 bg-muted/20 p-3">
+            <div className="text-xs text-muted-foreground">错误名称</div>
+            <div className="mt-1 break-all font-mono text-sm font-semibold">{statusError.name}</div>
+          </div>
+          <div className="rounded-xl border border-border/40 bg-muted/20 p-3">
+            <div className="text-xs text-muted-foreground">通信接口</div>
+            <div className="mt-1 text-sm font-semibold">{statusError.interfaceType} · {statusError.interfaceIdentifier || '未标识'}</div>
+          </div>
+          <div className="rounded-xl border border-border/40 bg-muted/20 p-3">
+            <div className="text-xs text-muted-foreground">发生时间</div>
+            <div className="mt-1 text-sm font-semibold">{FormatOccurredAt(statusError.occurredAt)}</div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3">
+          <div className="text-xs text-warning">错误原因</div>
+          <p className="mt-1 text-sm text-foreground">{statusError.reason}</p>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>关闭</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function DeviceDetailDialog({
   device,
   model,
@@ -568,6 +666,8 @@ function DeviceDetailDialog({
   onClose,
   onRead,
   onWrite,
+  onDiagnose,
+  onShowStatusError,
 }: {
   device: IDeviceInstance | null
   model: IDeviceModel | null
@@ -575,17 +675,20 @@ function DeviceDetailDialog({
   onClose: () => void
   onRead: (deviceId: string, identifier: string) => void
   onWrite: (deviceId: string, dataPoint: IDataPoint, value: string) => void
+  onDiagnose: (deviceId: string, code: number) => void
+  onShowStatusError: (device: IDeviceInstance) => void
 }) {
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
+  const [diagnosticCode, setDiagnosticCode] = useState('0');
 
   useEffect(() => {
     setDraftValues(device?.dataPointValues || {});
+    setDiagnosticCode('0');
   }, [device]);
 
   if (!device) return null;
 
   const dataPoints = model?.dataPoints || [];
-  const statusLabel = GetStatusLabel(device.status);
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -594,7 +697,7 @@ function DeviceDetailDialog({
           <DialogTitle className="flex flex-wrap items-center gap-2">
             <Activity className="size-5 text-primary" />
             {device.name}
-            <Badge className={GetStatusClassName(device.status)}>{statusLabel}</Badge>
+            <DeviceStatusBadge device={device} onClick={() => onShowStatusError(device)} />
           </DialogTitle>
           <DialogDescription>{device.modelName} · SN {device.serialNumber}</DialogDescription>
         </DialogHeader>
@@ -615,6 +718,30 @@ function DeviceDetailDialog({
           <div className="rounded-xl border border-border/40 bg-muted/20 p-3">
             <div className="text-xs text-muted-foreground">安装位置</div>
             <div className="mt-1 flex items-center gap-1 text-sm font-semibold"><MapPin className="size-3.5 text-primary" />{device.location || '未设置'}</div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border/40 bg-muted/20 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="text-sm font-semibold">通信诊断</div>
+              <div className="mt-1 text-xs text-muted-foreground">模拟 DSDK 读取结果，成功会恢复正常状态，失败会更新设备状态。</div>
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <Select value={diagnosticCode} onValueChange={setDiagnosticCode}>
+                <SelectTrigger className="w-full sm:w-[280px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {DSDK_ERROR_DEFINITIONS.map((definition) => (
+                    <SelectItem key={definition.code} value={String(definition.code)}>
+                      {definition.code} · {definition.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button type="button" onClick={() => onDiagnose(device.id, Number(diagnosticCode))}>
+                <RefreshCw className="mr-1.5 size-4" />执行诊断
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -707,6 +834,7 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
   const [batchImportOpen, setBatchImportOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<IDeviceInstance | null>(null);
   const [detailDeviceId, setDetailDeviceId] = useState<string | null>(null);
+  const [statusErrorDeviceId, setStatusErrorDeviceId] = useState<string | null>(null);
   const [deleteDevice, setDeleteDevice] = useState<IDeviceInstance | null>(null);
 
   useEffect(() => {
@@ -727,6 +855,7 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
 
   const detailDevice = devices.find((device) => device.id === detailDeviceId) || null;
   const detailModel = models.find((model) => model.id === detailDevice?.modelId) || null;
+  const statusErrorDevice = devices.find((device) => device.id === statusErrorDeviceId) || null;
   const normalCount = devices.filter((device) => device.status === 'normal').length;
   const warningCount = devices.filter((device) => device.status === 'warning').length;
   const offlineCount = devices.filter((device) => device.status === 'offline').length;
@@ -762,6 +891,7 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
       interfaceType,
       interfaceLabel,
       status: currentDevice?.status || 'normal',
+      statusError: currentDevice?.statusError,
       serialNumber: draft.serialNumber,
       address,
       description: draft.description.trim(),
@@ -839,6 +969,41 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
   const handleRead = (deviceId: string) => {
     UpdateDevices(devices.map((device) => device.id === deviceId ? { ...device, lastUpdate: '刚刚' } : device));
     toast.success('数据点读取成功');
+  };
+
+  const handleDiagnose = (deviceId: string, code: number) => {
+    const currentDevice = devices.find((device) => device.id === deviceId);
+    if (!currentDevice) {
+      toast.error('设备不存在，无法执行通信诊断');
+      return;
+    }
+    const model = models.find((item) => item.id === currentDevice.modelId);
+    const interfaceConfig = GetModelInterfaces(model).find((item) => item.type === currentDevice.interfaceType)
+      || GetModelInterfaces(model)[0];
+    const status = ClassifyDsdkDeviceStatus(currentDevice.interfaceType, code);
+    const errorDefinition = GetDsdkErrorDefinition(code);
+    UpdateDevices(devices.map((device) => {
+      if (device.id !== deviceId) {
+        return device;
+      }
+      return {
+        ...device,
+        status,
+        statusError: code === 0
+          ? undefined
+          : BuildDeviceStatusError(device.interfaceType, interfaceConfig?.identifier || '', code),
+        lastUpdate: '刚刚',
+      };
+    }));
+    if (status === 'normal') {
+      toast.success(`设备「${currentDevice.name}」通信正常`);
+      return;
+    }
+    if (status === 'offline') {
+      toast.error(`设备「${currentDevice.name}」已离线：${errorDefinition.reason}`);
+      return;
+    }
+    toast.warning(`设备「${currentDevice.name}」出现告警：${errorDefinition.reason}`);
   };
 
   const handleWrite = (deviceId: string, dataPoint: IDataPoint, value: string) => {
@@ -938,7 +1103,7 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
                       <TableCell><div className="font-medium">{device.modelName}</div><div className="text-xs text-muted-foreground">{device.deviceType}</div></TableCell>
                       <TableCell><span className="font-mono text-xs">{device.serialNumber}</span></TableCell>
                       <TableCell><div className="flex items-center gap-1 text-sm"><Cable className="size-3.5 text-muted-foreground" />{device.interfaceType} · {device.interfaceLabel}</div><div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><Hash className="size-3" />{device.address}</div></TableCell>
-                      <TableCell><Badge className={GetStatusClassName(device.status)}>{GetStatusLabel(device.status)}</Badge></TableCell>
+                      <TableCell><DeviceStatusBadge device={device} onClick={() => setStatusErrorDeviceId(device.id)} /></TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" title="查看与读写" onClick={() => setDetailDeviceId(device.id)}><Eye className="size-4" /></Button>
@@ -963,7 +1128,21 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
 
       <DeviceFormDialog open={formOpen} device={editingDevice} models={models} devices={devices} onClose={() => { setFormOpen(false); setEditingDevice(null); }} onSubmit={handleSubmit} />
       <BatchDeviceImportDialog open={batchImportOpen} devices={devices} models={models} onAddLocalDevices={handleBatchAdd} onClose={() => setBatchImportOpen(false)} />
-      <DeviceDetailDialog device={detailDevice} model={detailModel} open={Boolean(detailDevice)} onClose={() => setDetailDeviceId(null)} onRead={handleRead} onWrite={handleWrite} />
+      <DeviceDetailDialog
+        device={detailDevice}
+        model={detailModel}
+        open={Boolean(detailDevice)}
+        onClose={() => setDetailDeviceId(null)}
+        onRead={handleRead}
+        onWrite={handleWrite}
+        onDiagnose={handleDiagnose}
+        onShowStatusError={(device) => setStatusErrorDeviceId(device.id)}
+      />
+      <DeviceStatusErrorDialog
+        device={statusErrorDevice}
+        open={Boolean(statusErrorDevice)}
+        onClose={() => setStatusErrorDeviceId(null)}
+      />
       <AlertDialog open={Boolean(deleteDevice)} onOpenChange={(isOpen) => !isOpen && setDeleteDevice(null)}>
         <AlertDialogContent className="border-border/40 bg-card/95">
           <AlertDialogHeader>
