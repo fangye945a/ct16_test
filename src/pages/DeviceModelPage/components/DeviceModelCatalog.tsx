@@ -321,6 +321,7 @@ function ScenarioSelectionField({
   const [customOpen, setCustomOpen] = useState(false);
   const [customName, setCustomName] = useState('');
   const [customIdentifier, setCustomIdentifier] = useState('');
+  const [deleteScenario, setDeleteScenario] = useState<IDeviceModelScenario | null>(null);
   const scenarios = [...PRESET_DEVICE_MODEL_SCENARIOS, ...customScenarios];
 
   const ToggleScenario = (scenario: IDeviceModelScenario, checked: boolean) => {
@@ -360,6 +361,22 @@ function ScenarioSelectionField({
     }
   };
 
+  const ConfirmDeleteScenario = () => {
+    if (!deleteScenario) {
+      return;
+    }
+    const nextCustomScenarios = customScenarios.filter((scenario) => scenario.identifier !== deleteScenario.identifier);
+    try {
+      SavePrototypeCustomDeviceModelScenarios(nextCustomScenarios);
+      setCustomScenarios(nextCustomScenarios);
+      onChange(value.filter((scenario) => scenario.identifier !== deleteScenario.identifier));
+      setDeleteScenario(null);
+      toast.success(`自定义场景“${deleteScenario.name}”已删除`);
+    } catch {
+      toast.error('删除自定义场景失败');
+    }
+  };
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
@@ -373,11 +390,25 @@ function ScenarioSelectionField({
         {scenarios.map((scenario) => {
           const checked = value.some((item) => item.identifier === scenario.identifier);
           return (
-            <label key={scenario.identifier} className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-sm hover:bg-muted/50">
-              <Checkbox checked={checked} onCheckedChange={(nextChecked) => ToggleScenario(scenario, nextChecked === true)} />
-              <span className="min-w-0 flex-1 truncate">{scenario.name}</span>
-              <span className="truncate font-mono text-[10px] text-muted-foreground">{scenario.identifier}</span>
-            </label>
+            <div key={scenario.identifier} className="flex items-center gap-1 rounded-md px-1.5 py-1 text-sm hover:bg-muted/50">
+              <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+                <Checkbox checked={checked} onCheckedChange={(nextChecked) => ToggleScenario(scenario, nextChecked === true)} />
+                <span className="min-w-0 flex-1 truncate">{scenario.name}</span>
+                <span className="truncate font-mono text-[10px] text-muted-foreground">{scenario.identifier}</span>
+              </label>
+              {scenario.source === 'custom' && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => setDeleteScenario(scenario)}
+                  aria-label={`删除自定义场景${scenario.name}`}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              )}
+            </div>
           );
         })}
       </div>
@@ -403,6 +434,22 @@ function ScenarioSelectionField({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={Boolean(deleteScenario)} onOpenChange={(open) => !open && setDeleteScenario(null)}>
+        <AlertDialogContent className="border-border/40 bg-card/95">
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除自定义场景</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定删除“{deleteScenario?.name || ''}”吗？删除后该场景将从已选列表和本地场景清单中移除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={ConfirmDeleteScenario}>
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
