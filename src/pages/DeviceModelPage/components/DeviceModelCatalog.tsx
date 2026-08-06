@@ -604,10 +604,12 @@ function ModelFormDialog({
               />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>类型标识</Label>
-            <Input value={typeIdentifier} onChange={(event) => setTypeIdentifier(event.target.value)} placeholder="输入设备类型标识" className="h-9" />
-          </div>
+          {isEditing && (
+            <div className="space-y-2">
+              <Label>类型标识</Label>
+              <Input value={typeIdentifier} onChange={(event) => setTypeIdentifier(event.target.value)} placeholder="输入设备类型标识" className="h-9" />
+            </div>
+          )}
           <div className="space-y-2">
             <Label>模型描述</Label>
             <Textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="输入模型用途说明" className="min-h-20" />
