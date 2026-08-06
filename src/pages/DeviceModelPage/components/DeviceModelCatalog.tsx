@@ -4,6 +4,7 @@ import {
   Archive,
   Boxes,
   CheckCircle2,
+  CircleAlert,
   Cloud,
   CloudOff,
   Download,
@@ -53,6 +54,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { GetDeviceInstances } from '@/data/device-instances';
 import {
   PRESET_DEVICE_MODEL_SCENARIOS,
+  type IDataPoint,
   type IDeviceModel,
   type IDeviceModelScenario,
 } from '@/data/device-models';
@@ -75,6 +77,10 @@ import {
   GetPrototypeCustomDeviceModelScenarios,
   SavePrototypeCustomDeviceModelScenarios,
 } from '@/services/prototypeDeviceModels';
+import {
+  InspectDeviceModelDriver,
+  type IDeviceModelDriverMetadata,
+} from '@/services/deviceModelDriverMetadata';
 import { DeviceModelIcon, DeviceModelIconField } from './DeviceModelIcon';
 
 const DEVICE_TYPE_CATALOG = [
@@ -114,6 +120,11 @@ interface ModelDraft {
   type: string;
   version: string;
   description: string;
+  vendor: string;
+  deviceModel: string;
+  typeIdentifier: string;
+  protocolDescription: string;
+  dataPoints: IDataPoint[];
   tags: string[];
   applicableScenarios: IDeviceModelScenario[];
   icon: Blob | null | undefined;
@@ -169,13 +180,13 @@ function BuildMockModel(file: File, draft: ModelDraft): IDeviceModel {
     type,
     version: draft.version.trim() || 'v1.0',
     description: draft.description.trim() || `从本地模型文件 ${file.name} 导入的设备模型。`,
-    vendor: '本地模型',
-    deviceModel: modelName,
-    typeIdentifier: type,
-    protocolDescription: '原型模式不解析动态库协议描述。',
+    vendor: draft.vendor.trim() || '本地模型',
+    deviceModel: draft.deviceModel.trim() || modelName,
+    typeIdentifier: draft.typeIdentifier.trim() || type,
+    protocolDescription: draft.protocolDescription.trim() || '未从协议驱动中读取到详细描述。',
     sourceFile: file.name,
-    dataPoints: [],
-    dataPointCount: 0,
+    dataPoints: draft.dataPoints,
+    dataPointCount: draft.dataPoints.length,
     createdAt: new Date().toISOString(),
     status: 'unsynced',
     tags: Array.from(new Set([...draft.tags, type, '本地导入'])),
@@ -397,41 +408,65 @@ function ScenarioSelectionField({
 }
 
 function ModelFormDialog({
+  open,
   model,
   sourceFile,
+  driverMetadata,
+  inspectingDriver,
+  onSelectSourceFile,
   onClose,
   onSaved,
 }: {
+  open: boolean;
   model: IDeviceModel | null;
   sourceFile: File | null;
+  driverMetadata: IDeviceModelDriverMetadata | null;
+  inspectingDriver: boolean;
+  onSelectSourceFile?: (file: File) => void;
   onClose: () => void;
   onSaved: (draft: ModelDraft) => Promise<void>;
 }) {
+  const sourceFileInputRef = useRef<HTMLInputElement>(null);
   const isEditing = Boolean(model);
   const [name, setName] = useState('');
   const [type, setType] = useState(GetDefaultDeviceType());
   const [version, setVersion] = useState('v1.0');
   const [description, setDescription] = useState('');
+  const [vendor, setVendor] = useState('');
+  const [deviceModel, setDeviceModel] = useState('');
+  const [typeIdentifier, setTypeIdentifier] = useState('');
+  const [protocolDescription, setProtocolDescription] = useState('');
+  const [dataPoints, setDataPoints] = useState<IDataPoint[]>([]);
   const [tags, setTags] = useState('');
   const [applicableScenarios, setApplicableScenarios] = useState<IDeviceModelScenario[]>([]);
   const [icon, setIcon] = useState<Blob | null | undefined>(undefined);
   const [saving, setSaving] = useState(false);
+  const deviceTypes = Array.from(new Set([type, ...DEVICE_TYPES].filter(Boolean)));
 
   useEffect(() => {
-    if (!model && !sourceFile) {
+    if (!open) {
       return;
     }
-    setName(model?.name || GetBaseName(sourceFile?.name || ''));
-    setType(model?.type || GetDefaultDeviceType());
+    setName(model?.name || driverMetadata?.modelName || (sourceFile ? GetBaseName(sourceFile.name) : ''));
+    setType(model?.type || driverMetadata?.deviceType || GetDefaultDeviceType());
     setVersion(model?.version || 'v1.0');
     setDescription(model?.description || '');
+    setVendor(model?.vendor || driverMetadata?.vendor || '');
+    setDeviceModel(model?.deviceModel || driverMetadata?.deviceModel || '');
+    setTypeIdentifier(model?.typeIdentifier || driverMetadata?.typeIdentifier || '');
+    setProtocolDescription(model?.protocolDescription || driverMetadata?.protocolDescription || '');
+    setDataPoints(model?.dataPoints || []);
     setTags(model?.tags.join(', ') || '');
     setApplicableScenarios(model?.applicableScenarios || []);
     setIcon(undefined);
-  }, [model, sourceFile]);
+  }, [driverMetadata, model, open, sourceFile]);
 
   const HandleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!isEditing && !sourceFile) {
+      toast.error('请选择 DSDK 模型开发工程生成的 .so 驱动文件');
+      return;
+    }
     if (!name.trim()) {
       toast.error('请输入设备模型名称');
       return;
@@ -443,6 +478,11 @@ function ModelFormDialog({
         type,
         version: version.trim() || 'v1.0',
         description: description.trim(),
+        vendor: vendor.trim(),
+        deviceModel: deviceModel.trim(),
+        typeIdentifier: typeIdentifier.trim(),
+        protocolDescription: protocolDescription.trim(),
+        dataPoints,
         tags: SplitTags(tags),
         applicableScenarios,
         icon,
@@ -455,22 +495,59 @@ function ModelFormDialog({
   };
 
   return (
-    <Dialog open={Boolean(model) || Boolean(sourceFile)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto border-border/40 bg-card/95">
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-border/40 bg-card/95">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {isEditing ? <Pencil className="size-5 text-primary" /> : <Plus className="size-5 text-primary" />}
             {isEditing ? '编辑设备模型' : '创建设备模型'}
           </DialogTitle>
           <DialogDescription>
-            {isEditing ? '修改展示信息不会影响已存在设备实例的数据点配置。' : '模型文件将在原型中登记为本地设备模型。'}
+            {isEditing ? '修改展示信息不会影响已存在设备实例的数据点配置。' : '选择 DSDK .so 协议驱动后，系统会自动读取其中的设备三元组，再由当前页面补充模型信息。'}
           </DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={HandleSubmit}>
           {!isEditing && (
-            <div className="space-y-2">
-              <Label>模型文件</Label>
-              <Input value={sourceFile?.name || ''} disabled className="h-9" />
+            <div className="space-y-2 rounded-xl border border-border/50 bg-muted/20 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label>协议驱动文件</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => sourceFileInputRef.current?.click()}
+                  disabled={inspectingDriver || saving}
+                >
+                  <FileUp className="mr-1.5 size-3.5" />
+                  {sourceFile ? '更换 .so 文件' : '选择 .so 文件'}
+                </Button>
+              </div>
+              <input
+                ref={sourceFileInputRef}
+                className="hidden"
+                type="file"
+                accept=".so,application/x-sharedlib"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.currentTarget.value = '';
+                  if (file) {
+                    onSelectSourceFile?.(file);
+                  }
+                }}
+              />
+              {sourceFile ? (
+                <p className="truncate text-sm font-medium" title={sourceFile.name}>{sourceFile.name}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">请选择 DSDK 模型开发工程生成的协议驱动文件。</p>
+              )}
+              {inspectingDriver ? (
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />正在读取 .so 驱动中的模型信息…</p>
+              ) : driverMetadata ? (
+                <p className={`flex items-start gap-1.5 text-xs ${driverMetadata.loaded ? 'text-success' : 'text-warning'}`}>
+                  {driverMetadata.loaded ? <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" /> : <CircleAlert className="mt-0.5 size-3.5 shrink-0" />}
+                  <span>{driverMetadata.message}</span>
+                </p>
+              ) : null}
             </div>
           )}
           <DeviceModelIconField model={model} value={icon} onChange={setIcon} />
@@ -484,7 +561,7 @@ function ModelFormDialog({
               <Select value={type} onValueChange={setType}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {DEVICE_TYPES.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+                  {deviceTypes.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -493,9 +570,27 @@ function ModelFormDialog({
               <Input value={version} onChange={(event) => setVersion(event.target.value)} placeholder="v1.0" className="h-9" />
             </div>
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>设备厂商</Label>
+              <Input value={vendor} onChange={(event) => setVendor(event.target.value)} placeholder="输入设备厂商" className="h-9" />
+            </div>
+            <div className="space-y-2">
+              <Label>设备型号</Label>
+              <Input value={deviceModel} onChange={(event) => setDeviceModel(event.target.value)} placeholder="输入设备型号" className="h-9" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>类型标识</Label>
+            <Input value={typeIdentifier} onChange={(event) => setTypeIdentifier(event.target.value)} placeholder="输入设备类型标识" className="h-9" />
+          </div>
           <div className="space-y-2">
             <Label>模型描述</Label>
-            <Textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="输入模型用途和协议说明" className="min-h-20" />
+            <Textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="输入模型用途说明" className="min-h-20" />
+          </div>
+          <div className="space-y-2">
+            <Label>协议描述</Label>
+            <Textarea value={protocolDescription} onChange={(event) => setProtocolDescription(event.target.value)} placeholder="输入协议描述" className="min-h-20" />
           </div>
           <ScenarioSelectionField value={applicableScenarios} onChange={setApplicableScenarios} />
           <div className="space-y-2">
@@ -504,7 +599,7 @@ function ModelFormDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>取消</Button>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving || inspectingDriver}>
               {saving && <Loader2 className="size-3.5 animate-spin" />}
               {isEditing ? '保存修改' : '创建模型'}
             </Button>
@@ -848,12 +943,14 @@ function LocalExportDialog({ models, open, onClose }: { models: IDeviceModel[]; 
 }
 
 export default function DeviceModelCatalog({ models, setModels }: DeviceModelCatalogProps) {
-  const createFileInputRef = useRef<HTMLInputElement>(null);
+  const driverMetadataRequestRef = useRef(0);
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [createGuideOpen, setCreateGuideOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createFile, setCreateFile] = useState<File | null>(null);
+  const [createDriverMetadata, setCreateDriverMetadata] = useState<IDeviceModelDriverMetadata | null>(null);
+  const [inspectingCreateDriver, setInspectingCreateDriver] = useState(false);
   const [localImportOpen, setLocalImportOpen] = useState(false);
   const [localExportOpen, setLocalExportOpen] = useState(false);
   const [detailModel, setDetailModel] = useState<IDeviceModel | null>(null);
@@ -874,7 +971,7 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
     });
   }, [models, searchTerm, typeFilter]);
 
-  const SelectCreateFile = (file: File | null) => {
+  const SelectCreateFile = async (file: File | null) => {
     if (!file) {
       return;
     }
@@ -882,8 +979,42 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
       toast.error('请选择 DSDK 模型开发工程生成的 .so 文件');
       return;
     }
-    setCreateGuideOpen(false);
     setCreateFile(file);
+    setCreateDriverMetadata(null);
+    const requestId = driverMetadataRequestRef.current + 1;
+    driverMetadataRequestRef.current = requestId;
+    setInspectingCreateDriver(true);
+    try {
+      const metadata = await InspectDeviceModelDriver(file);
+      if (driverMetadataRequestRef.current === requestId) {
+        setCreateDriverMetadata(metadata);
+      }
+    } catch (error) {
+      if (driverMetadataRequestRef.current === requestId) {
+        setCreateDriverMetadata({
+          modelName: '',
+          deviceType: '',
+          vendor: '',
+          deviceModel: '',
+          typeIdentifier: '',
+          protocolDescription: '',
+          loaded: false,
+          message: error instanceof Error ? error.message : '读取 .so 驱动中的模型信息失败，请手动补充。',
+        });
+      }
+    } finally {
+      if (driverMetadataRequestRef.current === requestId) {
+        setInspectingCreateDriver(false);
+      }
+    }
+  };
+
+  const CloseCreateDialog = () => {
+    driverMetadataRequestRef.current += 1;
+    setCreateDialogOpen(false);
+    setCreateFile(null);
+    setCreateDriverMetadata(null);
+    setInspectingCreateDriver(false);
   };
 
   const SaveNewModel = async (draft: ModelDraft) => {
@@ -898,7 +1029,7 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
     try {
       await SaveModelAssetsChange(next.id, null, next.version, draft.icon, { fileName: createFile.name, blob: createFile });
       setModels((current) => [next, ...current]);
-      setCreateFile(null);
+      CloseCreateDialog();
       toast.success(`模型“${next.name}”已创建`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '保存模型图标失败');
@@ -958,7 +1089,7 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
       await SaveModelAssetsChange(createConflict.model.id, null, createConflict.model.version, createConflict.icon, createConflict.driver);
       setModels((current) => [createConflict.model, ...current.filter((model) => GetModelKey(model) !== GetModelKey(createConflict.model))]);
       setCreateConflict(null);
-      setCreateFile(null);
+      CloseCreateDialog();
       toast.success('原型设备模型已替换');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '替换设备模型失败');
@@ -1006,20 +1137,10 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
                 <Download className="mr-1 size-3.5" />
                 本地导出
               </Button>
-              <Button size="sm" className="h-9" onClick={() => setCreateGuideOpen(true)}>
+              <Button size="sm" className="h-9" onClick={() => setCreateDialogOpen(true)}>
                 <Plus className="mr-1 size-3.5" />
                 创建模型
               </Button>
-              <input
-                ref={createFileInputRef}
-                type="file"
-                accept=".so"
-                className="hidden"
-                onChange={(event) => {
-                  SelectCreateFile(event.target.files?.[0] || null);
-                  event.currentTarget.value = '';
-                }}
-              />
             </div>
           </div>
         </CardContent>
@@ -1097,26 +1218,27 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
       )}
 
       <ModelDetailDialog model={detailModel} onClose={() => setDetailModel(null)} />
-      <ModelFormDialog model={editModel} sourceFile={null} onClose={() => setEditModel(null)} onSaved={SaveEditedModel} />
-      <ModelFormDialog model={null} sourceFile={createFile} onClose={() => setCreateFile(null)} onSaved={SaveNewModel} />
+      <ModelFormDialog
+        open={Boolean(editModel)}
+        model={editModel}
+        sourceFile={null}
+        driverMetadata={null}
+        inspectingDriver={false}
+        onClose={() => setEditModel(null)}
+        onSaved={SaveEditedModel}
+      />
+      <ModelFormDialog
+        open={createDialogOpen}
+        model={null}
+        sourceFile={createFile}
+        driverMetadata={createDriverMetadata}
+        inspectingDriver={inspectingCreateDriver}
+        onSelectSourceFile={(file) => void SelectCreateFile(file)}
+        onClose={CloseCreateDialog}
+        onSaved={SaveNewModel}
+      />
       <LocalImportDialog models={models} setModels={setModels} open={localImportOpen} onClose={() => setLocalImportOpen(false)} />
       <LocalExportDialog models={models} open={localExportOpen} onClose={() => setLocalExportOpen(false)} />
-
-      <Dialog open={createGuideOpen} onOpenChange={setCreateGuideOpen}>
-        <DialogContent className="max-w-md border-border/40 bg-card/95">
-          <DialogHeader>
-            <DialogTitle>选择模型文件</DialogTitle>
-            <DialogDescription>请选择 DSDK 模型开发工程生成的协议驱动 .so 文件。</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setCreateGuideOpen(false)}>取消</Button>
-            <Button type="button" onClick={() => createFileInputRef.current?.click()}>
-              <FileUp className="mr-1 size-4" />
-              选择模型文件
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog open={Boolean(deleteModel)} onOpenChange={(open) => !open && setDeleteModel(null)}>
         <AlertDialogContent className="border-border/40 bg-card/95">
