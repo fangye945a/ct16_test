@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -21,12 +19,20 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Clock,
   Shield,
   Save,
   RotateCcw,
-  Plus,
-  X,
   ToggleRight,
   ToggleLeft,
   Wifi,
@@ -39,14 +45,14 @@ import {
   EyeOff,
   Upload,
   LoaderCircle,
+  Power,
+  TriangleAlert,
 } from 'lucide-react';
 import {
   MOCK_TIME_SETTINGS,
-  MOCK_SECURITY_SETTINGS,
   MOCK_WIRELESS_SLOT_SETTINGS,
   MOCK_NETWORK_INTERFACE_SETTINGS,
   type ITimeSettings,
-  type ISecuritySettings,
   type IWirelessSlotSettings,
   type INetworkInterfaceConfig,
   type INetworkInterfaceSettings,
@@ -270,16 +276,17 @@ export default function SettingsPage() {
   const [timezoneSearch, setTimezoneSearch] = useState('');
   const [timeLoading, setTimeLoading] = useState(true);
   const [timeSaving, setTimeSaving] = useState(false);
-  const [security, setSecurity] = useState<ISecuritySettings>({ ...MOCK_SECURITY_SETTINGS });
   const [serviceStatus, setServiceStatus] = useState<PrototypeServiceStatus>({ sshd: true, hdcd: true });
   const [pendingService, setPendingService] = useState<keyof PrototypeServiceStatus | null>(null);
   const [pendingServiceEnabled, setPendingServiceEnabled] = useState(false);
   const [servicePassword, setServicePassword] = useState('');
   const [serviceError, setServiceError] = useState('');
   const [serviceBusy, setServiceBusy] = useState(false);
-  const [newIp, setNewIp] = useState('');
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showRebootConfirm, setShowRebootConfirm] = useState(false);
+  const [rebooting, setRebooting] = useState(false);
+  const rebootTimerRef = useRef<number | null>(null);
 
   const [systemName, setSystemName] = useState(() => localStorage.getItem('zaihong:systemName') || '在鸿设备管理系统');
   const [logoType, setLogoType] = useState(() => localStorage.getItem('zaihong:logoType') || 'chip');
@@ -306,7 +313,6 @@ export default function SettingsPage() {
       setTime((current) => ({ ...current, ...timeSettings }));
       setTimezones(availableTimezones);
       setServiceStatus(services);
-      setSecurity((current) => ({ ...current, sshEnabled: services.sshd }));
       setSystemName(appearance.systemName);
       setLogoType(appearance.logoType);
       setLogoImage(appearance.logoImage);
@@ -322,6 +328,12 @@ export default function SettingsPage() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => () => {
+    if (rebootTimerRef.current !== null) {
+      window.clearTimeout(rebootTimerRef.current);
+    }
   }, []);
 
   const visibleTimezones = useMemo(() => {
@@ -354,7 +366,6 @@ export default function SettingsPage() {
     window.dispatchEvent(new Event('zaihong:wireless-config-changed'));
     window.dispatchEvent(new Event('zaihong:network-config-changed'));
     setTime({ ...MOCK_TIME_SETTINGS });
-    setSecurity({ ...MOCK_SECURITY_SETTINGS });
     setShowResetDialog(false);
     toast.success('已恢复默认配置');
   };
@@ -370,20 +381,6 @@ export default function SettingsPage() {
         },
       },
     }));
-  };
-
-  const addAllowedIp = () => {
-    if (!newIp.trim()) return;
-    if (security.allowedIps.includes(newIp.trim())) {
-      toast.info('该 IP 已在白名单中');
-      return;
-    }
-    setSecurity((prev) => ({ ...prev, allowedIps: [...prev.allowedIps, newIp.trim()] }));
-    setNewIp('');
-  };
-
-  const removeAllowedIp = (ip: string) => {
-    setSecurity((prev) => ({ ...prev, allowedIps: prev.allowedIps.filter((i) => i !== ip) }));
   };
 
   const saveTimeSettings = async () => {
@@ -415,7 +412,6 @@ export default function SettingsPage() {
       await VerifyPrototypeAdminPassword(servicePassword);
       const next = await SetPrototypeServiceStatus(pendingService, pendingServiceEnabled);
       setServiceStatus(next);
-      setSecurity((current) => ({ ...current, sshEnabled: next.sshd }));
       toast.success(`${pendingService === 'sshd' ? 'SSH' : 'HDC'} 服务已${pendingServiceEnabled ? '启动' : '停止'}`);
       setPendingService(null);
     } catch (error) {
@@ -487,6 +483,16 @@ export default function SettingsPage() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '密码修改失败');
     }
+  };
+
+  const handleReboot = () => {
+    setShowRebootConfirm(false);
+    setRebooting(true);
+    rebootTimerRef.current = window.setTimeout(() => {
+      rebootTimerRef.current = null;
+      setRebooting(false);
+      toast.success('已完成设备重启模拟');
+    }, 2200);
   };
 
   return (
@@ -629,38 +635,44 @@ export default function SettingsPage() {
               <LoaderCircle className="size-4 animate-spin" />正在加载时间设置
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="timezone-search" className="text-sm">时区</Label>
-                <Input
-                  id="timezone-search"
-                  value={timezoneSearch}
-                  onChange={(event) => setTimezoneSearch(event.target.value)}
-                  placeholder="搜索时区"
-                  className="h-9 text-base"
-                />
-                <Select value={time.timezone} onValueChange={(timezone) => setTime((current) => ({ ...current, timezone }))}>
-                  <SelectTrigger className="h-9 text-base"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {visibleTimezones.length > 0 ? visibleTimezones.map((timezone) => (
-                      <SelectItem key={timezone} value={timezone}>{timezone}</SelectItem>
-                    )) : <SelectItem value={time.timezone}>{time.timezone}</SelectItem>}
-                  </SelectContent>
-                </Select>
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="timezone-search" className="text-sm">时区</Label>
+                  <Input
+                    id="timezone-search"
+                    value={timezoneSearch}
+                    onChange={(event) => setTimezoneSearch(event.target.value)}
+                    placeholder="搜索时区"
+                    className="h-9 text-base"
+                  />
+                  <Select value={time.timezone} onValueChange={(timezone) => setTime((current) => ({ ...current, timezone }))}>
+                    <SelectTrigger className="h-9 text-base"><SelectValue placeholder="选择时区" /></SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {visibleTimezones.length > 0 ? visibleTimezones.map((timezone) => (
+                        <SelectItem key={timezone} value={timezone}>{timezone.replace(/_/g, ' ')}</SelectItem>
+                      )) : <SelectItem value={time.timezone}>{time.timezone}</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ntp-server" className="text-sm">NTP 服务器</Label>
+                  <Input
+                    id="ntp-server"
+                    value={time.ntpServer}
+                    onChange={(event) => setTime((current) => ({ ...current, ntpServer: event.target.value }))}
+                    className="h-9 text-base"
+                    placeholder={MOCK_TIME_SETTINGS.ntpServer}
+                  />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="ntp-server" className="text-sm">NTP 服务器</Label>
-                <Input
-                  id="ntp-server"
-                  value={time.ntpServer}
-                  onChange={(event) => setTime((current) => ({ ...current, ntpServer: event.target.value }))}
-                  className="h-9 text-base"
-                />
+              <div className="flex items-center gap-2 border-t border-border/30 pt-4">
                 <Button size="sm" onClick={() => void saveTimeSettings()} disabled={timeSaving}>
-                  {timeSaving && <LoaderCircle className="size-3.5 animate-spin" />}保存时间设置
+                  {timeSaving ? <LoaderCircle className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+                  {timeSaving ? '保存中...' : '保存'}
                 </Button>
               </div>
-            </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -674,80 +686,27 @@ export default function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-sm">管理员密码</Label>
-              <Input
-                type="password"
-                value={security.adminPassword}
-                onChange={(e) =>
-                  setSecurity((prev) => ({ ...prev, adminPassword: e.target.value }))
-                }
-                className="h-9 text-base"
-              />
-            </div>
-            <div className="flex flex-wrap items-end gap-4 pb-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <button
-                  type="button"
-                  onClick={() => handleServiceToggle('sshd', !serviceStatus.sshd)}
-                >
-                  {serviceStatus.sshd ? (
-                    <ToggleRight className="size-5 text-success" />
-                  ) : (
-                    <ToggleLeft className="size-5 text-muted-foreground" />
-                  )}
-                </button>
-                <span className="text-sm">启用 SSH</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <button type="button" onClick={() => handleServiceToggle('hdcd', !serviceStatus.hdcd)}>
-                  {serviceStatus.hdcd ? <ToggleRight className="size-5 text-success" /> : <ToggleLeft className="size-5 text-muted-foreground" />}
-                </button>
-                <span className="text-sm">启用 HDC</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSecurity((prev) => ({ ...prev, httpsOnly: !prev.httpsOnly }))
-                  }
-                >
-                  {security.httpsOnly ? (
-                    <ToggleRight className="size-5 text-success" />
-                  ) : (
-                    <ToggleLeft className="size-5 text-muted-foreground" />
-                  )}
-                </button>
-                <span className="text-sm">仅 HTTPS</span>
-              </label>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm">IP 访问白名单</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                value={newIp}
-                onChange={(e) => setNewIp(e.target.value)}
-                placeholder="输入 IP 地址"
-                className="h-9 text-base max-w-[240px]"
-                onKeyDown={(e) => e.key === 'Enter' && addAllowedIp()}
-              />
-              <Button variant="outline" size="sm" className="h-9" onClick={addAllowedIp}>
-                <Plus className="size-3.5 mr-1" />
-                添加
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {security.allowedIps.map((ip) => (
-                <Badge key={ip} variant="secondary" className="gap-1 text-xs">
-                  {ip}
-                  <button onClick={() => removeAllowedIp(ip)}>
-                    <X className="size-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
+          <div className="flex flex-wrap items-center gap-6">
+            <label className="flex cursor-pointer items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleServiceToggle('sshd', !serviceStatus.sshd)}
+                aria-label="切换 SSH 服务"
+              >
+                {serviceStatus.sshd ? <ToggleRight className="size-5 text-success" /> : <ToggleLeft className="size-5 text-muted-foreground" />}
+              </button>
+              <span className="text-sm">启用 SSH</span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleServiceToggle('hdcd', !serviceStatus.hdcd)}
+                aria-label="切换 HDC 服务"
+              >
+                {serviceStatus.hdcd ? <ToggleRight className="size-5 text-success" /> : <ToggleLeft className="size-5 text-muted-foreground" />}
+              </button>
+              <span className="text-sm">启用 HDC</span>
+            </label>
           </div>
         </CardContent>
       </Card>
@@ -875,6 +834,66 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <Card className="border-border/40 bg-card/60">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Power className="size-4 text-primary" />
+            设备操作
+          </CardTitle>
+          <CardDescription>以下操作会中断设备服务，请确认当前没有关键任务正在运行。</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">重启设备</p>
+            <p className="text-sm text-muted-foreground">重启期间 Web、网络连接和设备业务将暂时不可用。</p>
+          </div>
+          <Button type="button" size="sm" disabled={rebooting} onClick={() => setShowRebootConfirm(true)}>
+            <Power className="size-3.5" />
+            重启设备
+          </Button>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={showRebootConfirm} onOpenChange={setShowRebootConfirm}>
+        <AlertDialogContent className="border-destructive/30">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <TriangleAlert className="size-5" />
+              确认重启设备
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">设备将立即重启，当前 Web 会话、网络连接和正在运行的设备业务会暂时中断。</span>
+              <span className="block font-medium text-foreground">请确认已保存配置，并且当前没有关键任务正在运行。</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={rebooting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={rebooting}
+              onClick={handleReboot}
+            >
+              确认重启
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={rebooting} onOpenChange={(open) => !open && setRebooting(false)}>
+        <DialogContent className="border-border/40 bg-card/95" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LoaderCircle className="size-5 animate-spin text-primary" />
+              设备正在重启
+            </DialogTitle>
+            <DialogDescription>原型正在模拟设备离线与服务恢复，请勿关闭当前页面。</DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md border border-border/40 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+            原型模式不会重启真实设备。
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={pendingService !== null} onOpenChange={(open) => !open && setPendingService(null)}>
         <DialogContent className="border-border/40 bg-card/95">
