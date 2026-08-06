@@ -146,6 +146,7 @@ function ToDeviceModel(value: unknown, sourceFile: string): IDeviceModel {
   }
   const dataPoints = Array.isArray(value.dataPoints) ? value.dataPoints as IDeviceModel['dataPoints'] : [];
   const tags = Array.isArray(value.tags) ? value.tags.filter((tag): tag is string => typeof tag === 'string') : [];
+  const interfaces = Array.isArray(value.interfaces) ? value.interfaces as IDeviceModel['interfaces'] : [];
   return {
     id,
     name,
@@ -163,6 +164,7 @@ function ToDeviceModel(value: unknown, sourceFile: string): IDeviceModel {
     status: value.status === 'synced' ? 'synced' : 'unsynced',
     tags,
     applicableScenarios: ToScenarios(value.applicableScenarios),
+    interfaces,
   };
 }
 

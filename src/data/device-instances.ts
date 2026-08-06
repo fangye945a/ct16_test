@@ -40,6 +40,7 @@ export interface IDeviceInstance {
   displayValue: string
   displayUnit: string
   dataPointValues: Record<string, string>
+  interfaceConfigs?: Record<string, string[]>
   lastUpdate: string
   angle: number
   distance: number
@@ -141,10 +142,19 @@ export function GetDeviceCategory(modelType: string): DeviceCategory {
 export function GetDeviceGroup(interfaceType: string): DeviceGroup {
   const groupMap: Record<string, DeviceGroup> = {
     RS485: 'rs485',
+    RS232: 'rs485',
     DI: 'di',
     DO: 'do',
     AI: 'ai',
     AO: 'ao',
+    CI: 'ai',
+    CO: 'ao',
+    VI: 'ai',
+    VO: 'ao',
+    UDP: 'eth',
+    TCP_CLIENT: 'eth',
+    TCP_SERVER: 'eth',
+    CAN: 'eth',
     ETH: 'eth',
   };
   return groupMap[interfaceType] || 'eth';

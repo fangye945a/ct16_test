@@ -1073,6 +1073,7 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
           deviceModel: '',
           typeIdentifier: '',
           protocolDescription: '',
+          interfaces: [],
           loaded: false,
           message: error instanceof Error ? error.message : '读取 .so 驱动中的模型信息失败，请重新选择有效驱动。',
         });
@@ -1100,7 +1101,7 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
       toast.error('未读取到设备三元组，请重新选择有效的 DSDK .so 驱动文件');
       return;
     }
-    const next = BuildMockModel(createFile, draft);
+    const next = { ...BuildMockModel(createFile, draft), interfaces: createDriverMetadata.interfaces };
     if (models.some((model) => GetModelKey(model) === GetModelKey(next))) {
       setCreateConflict({ model: next, icon: draft.icon, driver: { fileName: createFile.name, blob: createFile } });
       return;

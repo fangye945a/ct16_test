@@ -42,7 +42,18 @@ function ReadArray<T>(key: string, fallback: T[]): T[] {
  * @returns 当前浏览器保存的设备模型，首次访问时返回内置模型。
  */
 export function GetPrototypeDeviceModels(): IDeviceModel[] {
-  return ReadArray(DEVICE_MODELS_STORAGE_KEY, MOCK_DEVICE_MODELS);
+  const models = ReadArray(DEVICE_MODELS_STORAGE_KEY, MOCK_DEVICE_MODELS);
+  const builtinModels = new Map(MOCK_DEVICE_MODELS.map((model) => [model.id, model]));
+  return models.map((model) => {
+    const builtinModel = builtinModels.get(model.id);
+    if (model.interfaces || !builtinModel?.interfaces) {
+      return model;
+    }
+    return {
+      ...model,
+      interfaces: CloneValue(builtinModel.interfaces),
+    };
+  });
 }
 
 /**

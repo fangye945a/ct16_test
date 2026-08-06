@@ -70,7 +70,7 @@ import {
   Wifi,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { type IDataPoint, type IDeviceModel } from '@/data/device-models';
+import { type IDataPoint, type IDeviceModel, type IDeviceModelInterfaceConfig } from '@/data/device-models';
 import {
   BuildDataPointValues,
   DEVICE_INSTANCES_CHANGED_EVENT,
@@ -85,7 +85,6 @@ import {
 import BatchDeviceImportDialog from './components/BatchDeviceImportDialog';
 import type { IDeviceBatchImportRow } from './deviceBatchImport';
 
-const INTERFACE_TYPES = ['RS485', 'ETH', 'DI', 'DO', 'AI', 'AO'];
 const DEVICE_STATUS_OPTIONS: Array<{ value: DeviceStatus | 'all'; label: string }> = [
   { value: 'all', label: '全部状态' },
   { value: 'normal', label: '正常' },
@@ -97,36 +96,196 @@ interface DeviceDraft {
   name: string
   modelId: string
   serialNumber: string
-  interfaceType: string
-  interfaceLabel: string
-  address: string
   location: string
   description: string
+  interfaceConfigs: Record<string, string[]>
+}
+
+type InterfaceParameterKind = 'text' | 'number' | 'select'
+
+interface InterfaceParameterSpec {
+  key: string
+  label: string
+  kind: InterfaceParameterKind
+  min?: number
+  max?: number
+  options?: string[]
+  ipAddress?: boolean
+}
+
+const BAUD_RATE_OPTIONS = ['1200', '2400', '4800', '9600', '19200', '38400', '57600', '115200'];
+const INTERFACE_PARAMETER_SPECS: Record<string, InterfaceParameterSpec[]> = {
+  DI: [
+    { key: 'slot', label: '槽位号', kind: 'number', min: 1, max: 6 },
+    { key: 'channel', label: '通道号', kind: 'number', min: 1, max: 16 },
+  ],
+  DO: [
+    { key: 'slot', label: '槽位号', kind: 'number', min: 1, max: 6 },
+    { key: 'channel', label: '通道号', kind: 'number', min: 1, max: 16 },
+  ],
+  CI: [
+    { key: 'slot', label: '槽位号', kind: 'number', min: 1, max: 6 },
+    { key: 'channel', label: '通道号', kind: 'number', min: 1, max: 8 },
+  ],
+  CO: [
+    { key: 'slot', label: '槽位号', kind: 'number', min: 1, max: 6 },
+    { key: 'channel', label: '通道号', kind: 'number', min: 1, max: 8 },
+  ],
+  VI: [
+    { key: 'slot', label: '槽位号', kind: 'number', min: 1, max: 6 },
+    { key: 'channel', label: '通道号', kind: 'number', min: 1, max: 8 },
+  ],
+  VO: [
+    { key: 'slot', label: '槽位号', kind: 'number', min: 1, max: 6 },
+    { key: 'channel', label: '通道号', kind: 'number', min: 1, max: 8 },
+  ],
+  RS485: [
+    { key: 'slot', label: '槽位号', kind: 'number', min: 1, max: 6 },
+    { key: 'channel', label: '通道号', kind: 'number', min: 0 },
+    { key: 'baudRate', label: '波特率', kind: 'select', options: BAUD_RATE_OPTIONS },
+    { key: 'dataBits', label: '数据位', kind: 'select', options: ['5', '6', '7', '8'] },
+    { key: 'stopBits', label: '停止位', kind: 'select', options: ['1', '2'] },
+    { key: 'parity', label: '校验位', kind: 'select', options: ['N', 'E', 'O'] },
+  ],
+  RS232: [
+    { key: 'slot', label: '槽位号', kind: 'number', min: 1, max: 6 },
+    { key: 'channel', label: '通道号', kind: 'number', min: 0 },
+    { key: 'baudRate', label: '波特率', kind: 'select', options: BAUD_RATE_OPTIONS },
+    { key: 'dataBits', label: '数据位', kind: 'select', options: ['5', '6', '7', '8'] },
+    { key: 'stopBits', label: '停止位', kind: 'select', options: ['1', '2'] },
+    { key: 'parity', label: '校验位', kind: 'select', options: ['N', 'E', 'O'] },
+  ],
+  UDP: [
+    { key: 'ip', label: 'IPv4 地址', kind: 'text', ipAddress: true },
+    { key: 'port', label: '端口号', kind: 'number', min: 1, max: 65535 },
+  ],
+  TCP_CLIENT: [
+    { key: 'ip', label: '远端 IPv4 地址', kind: 'text', ipAddress: true },
+    { key: 'port', label: '端口号', kind: 'number', min: 1, max: 65535 },
+  ],
+  TCP_SERVER: [
+    { key: 'ip', label: '监听 IPv4 地址', kind: 'text', ipAddress: true },
+    { key: 'port', label: '端口号', kind: 'number', min: 1, max: 65535 },
+  ],
+  CAN: [
+    { key: 'slot', label: '槽位号', kind: 'number', min: 1, max: 6 },
+    { key: 'channel', label: 'CAN 通道号', kind: 'number', min: 0 },
+    { key: 'baudRate', label: '波特率', kind: 'select', options: BAUD_RATE_OPTIONS },
+  ],
+  ETH: [{ key: 'address', label: '网络地址', kind: 'text' }],
+};
+
+function GetModelInterfaces(model: IDeviceModel | undefined): IDeviceModelInterfaceConfig[] {
+  return model?.interfaces || [];
+}
+
+function NormalizeInterfaceValue(value: unknown): string {
+  const normalized = String(value ?? '').trim();
+  return normalized === '-1' ? '' : normalized;
+}
+
+function BuildDefaultInterfaceConfigs(model: IDeviceModel | undefined): Record<string, string[]> {
+  return GetModelInterfaces(model).reduce<Record<string, string[]>>((configs, item) => {
+    configs[item.identifier] = (Array.isArray(item.defaultConfig) ? item.defaultConfig : []).map(NormalizeInterfaceValue);
+    return configs;
+  }, {});
+}
+
+function BuildInterfaceConfigs(
+  model: IDeviceModel | undefined,
+  currentConfigs?: Record<string, string[]>,
+): Record<string, string[]> {
+  const defaults = BuildDefaultInterfaceConfigs(model);
+  return GetModelInterfaces(model).reduce<Record<string, string[]>>((configs, item) => {
+    const defaultValues = defaults[item.identifier] || [];
+    const currentValues = currentConfigs?.[item.identifier];
+    const valueCount = Math.max(defaultValues.length, currentValues?.length || 0);
+    configs[item.identifier] = Array.from({ length: valueCount }, (_, index) => {
+      const currentValue = currentValues?.[index];
+      return currentValue === undefined ? defaultValues[index] || '' : NormalizeInterfaceValue(currentValue);
+    });
+    return configs;
+  }, {});
+}
+
+function IsValidIpv4(value: string): boolean {
+  const segments = value.split('.');
+  return segments.length === 4 && segments.every((segment) => {
+    if (!/^\d{1,3}$/.test(segment)) {
+      return false;
+    }
+    const number = Number(segment);
+    return number >= 0 && number <= 255;
+  });
+}
+
+function GetInterfaceConfigError(
+  interfaceConfig: IDeviceModelInterfaceConfig,
+  values: string[],
+): string | null {
+  const specs = INTERFACE_PARAMETER_SPECS[interfaceConfig.type] || [];
+  for (const [index, spec] of specs.entries()) {
+    const value = NormalizeInterfaceValue(values[index]);
+    if (!value) {
+      return `请填写${interfaceConfig.name}的${spec.label}`;
+    }
+    if (spec.kind === 'number') {
+      const number = Number(value);
+      if (!Number.isInteger(number)) {
+        return `${interfaceConfig.name}的${spec.label}必须是整数`;
+      }
+      if (spec.min !== undefined && number < spec.min) {
+        return `${interfaceConfig.name}的${spec.label}不能小于 ${spec.min}`;
+      }
+      if (spec.max !== undefined && number > spec.max) {
+        return `${interfaceConfig.name}的${spec.label}不能大于 ${spec.max}`;
+      }
+    }
+    if (spec.ipAddress && !IsValidIpv4(value)) {
+      return `${interfaceConfig.name}的${spec.label}格式无效`;
+    }
+    if (spec.options && !spec.options.includes(value)) {
+      return `${interfaceConfig.name}的${spec.label}无效`;
+    }
+  }
+  return null;
+}
+
+function BuildInterfaceSummary(model: IDeviceModel, configs: Record<string, string[]>): string {
+  const firstInterface = GetModelInterfaces(model)[0];
+  if (!firstInterface) {
+    return '未配置接口';
+  }
+  const values = configs[firstInterface.identifier] || [];
+  const specs = INTERFACE_PARAMETER_SPECS[firstInterface.type] || [];
+  const summary = values
+    .map((value, index) => value ? `${specs[index]?.label || `参数${index + 1}`}=${value}` : '')
+    .filter(Boolean)
+    .join('，');
+  return summary || '未配置';
 }
 
 function GetEmptyDraft(models: IDeviceModel[]): DeviceDraft {
+  const model = models[0];
   return {
     name: '',
-    modelId: models[0]?.id || '',
+    modelId: model?.id || '',
     serialNumber: '',
-    interfaceType: 'RS485',
-    interfaceLabel: 'RS485-1',
-    address: '',
     location: '',
     description: '',
+    interfaceConfigs: BuildDefaultInterfaceConfigs(model),
   };
 }
 
-function GetDraftFromDevice(device: IDeviceInstance): DeviceDraft {
+function GetDraftFromDevice(device: IDeviceInstance, models: IDeviceModel[]): DeviceDraft {
+  const model = models.find((item) => item.id === device.modelId);
   return {
     name: device.name,
     modelId: device.modelId,
     serialNumber: device.serialNumber,
-    interfaceType: device.interfaceType,
-    interfaceLabel: device.interfaceLabel,
-    address: device.address,
     location: device.location,
     description: device.description,
+    interfaceConfigs: BuildInterfaceConfigs(model, device.interfaceConfigs),
   };
 }
 
@@ -219,11 +378,22 @@ function DeviceFormDialog({
 
   useEffect(() => {
     if (open) {
-      setDraft(device ? GetDraftFromDevice(device) : GetEmptyDraft(models));
+      setDraft(device ? GetDraftFromDevice(device, models) : GetEmptyDraft(models));
     }
   }, [device, models, open]);
 
   const selectedModel = models.find((model) => model.id === draft.modelId);
+
+  const UpdateInterfaceValue = (interfaceId: string, index: number, value: string) => {
+    setDraft((current) => {
+      const values = [...(current.interfaceConfigs[interfaceId] || [])];
+      values[index] = value;
+      return {
+        ...current,
+        interfaceConfigs: { ...current.interfaceConfigs, [interfaceId]: values },
+      };
+    });
+  };
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -244,11 +414,23 @@ function DeviceFormDialog({
       toast.error(`SN号「${serialNumber}」已存在`);
       return;
     }
-    if (!draft.interfaceType || !draft.address.trim()) {
-      toast.error('请填写通信接口和通信地址');
+    const interfaceConfigs = GetModelInterfaces(selectedModel);
+    if (interfaceConfigs.length === 0) {
+      toast.error('当前设备模型未定义接口配置，无法添加设备');
       return;
     }
-    onSubmit({ ...draft, name: draft.name.trim(), serialNumber, address: draft.address.trim() }, device?.id);
+    for (const interfaceConfig of interfaceConfigs) {
+      if (!INTERFACE_PARAMETER_SPECS[interfaceConfig.type]) {
+        toast.error(`接口「${interfaceConfig.name}」的类型「${interfaceConfig.type}」暂不支持配置`);
+        return;
+      }
+      const error = GetInterfaceConfigError(interfaceConfig, draft.interfaceConfigs[interfaceConfig.identifier] || []);
+      if (error) {
+        toast.error(error);
+        return;
+      }
+    }
+    onSubmit({ ...draft, name: draft.name.trim(), serialNumber }, device?.id);
   };
 
   const handleGenerateSerialNumber = () => {
@@ -277,7 +459,13 @@ function DeviceFormDialog({
             </div>
             <div className="space-y-2">
               <Label>设备模型</Label>
-              <Select value={draft.modelId} onValueChange={(modelId) => setDraft({ ...draft, modelId })}>
+              <Select
+                value={draft.modelId}
+                onValueChange={(modelId) => {
+                  const model = models.find((item) => item.id === modelId);
+                  setDraft((current) => ({ ...current, modelId, interfaceConfigs: BuildDefaultInterfaceConfigs(model) }));
+                }}
+              >
                 <SelectTrigger><SelectValue placeholder="选择设备模型" /></SelectTrigger>
                 <SelectContent>
                   {models.map((model) => <SelectItem key={model.id} value={model.id}>{model.name} · {model.version}</SelectItem>)}
@@ -292,31 +480,73 @@ function DeviceFormDialog({
               </div>
             </div>
             <div className="space-y-2">
-              <Label>设备分类</Label>
-              <Input value={selectedModel ? GetDeviceCategory(selectedModel.type) : ''} disabled placeholder="由模型类型决定" />
-            </div>
-            <div className="space-y-2">
-              <Label>通信接口</Label>
-              <Select value={draft.interfaceType} onValueChange={(interfaceType) => setDraft({ ...draft, interfaceType })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {INTERFACE_TYPES.map((interfaceType) => <SelectItem key={interfaceType} value={interfaceType}>{interfaceType}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>接口编号</Label>
-              <Input value={draft.interfaceLabel} onChange={(event) => setDraft({ ...draft, interfaceLabel: event.target.value })} placeholder="例如：RS485-1" />
-            </div>
-            <div className="space-y-2">
-              <Label>通信地址</Label>
-              <Input value={draft.address} onChange={(event) => setDraft({ ...draft, address: event.target.value })} placeholder="例如：MODBUS-0x01 或 192.168.1.50" />
-            </div>
-            <div className="space-y-2">
               <Label>安装位置</Label>
               <Input value={draft.location} onChange={(event) => setDraft({ ...draft, location: event.target.value })} placeholder="例如：车间A区-东墙" />
             </div>
           </div>
+          {selectedModel && (
+            <div className="space-y-3 rounded-xl border border-border/50 bg-muted/20 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">模型接口配置</div>
+                  <div className="text-xs text-muted-foreground">以下字段由“{selectedModel.name}”模型的接口配置动态生成。</div>
+                </div>
+                <Badge variant="outline">{GetModelInterfaces(selectedModel).length} 个接口</Badge>
+              </div>
+              {GetModelInterfaces(selectedModel).length === 0 ? (
+                <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
+                  当前模型未定义接口配置，请先完善设备模型后再添加设备。
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {GetModelInterfaces(selectedModel).map((interfaceConfig) => {
+                    const specs = INTERFACE_PARAMETER_SPECS[interfaceConfig.type] || [];
+                    const values = draft.interfaceConfigs[interfaceConfig.identifier] || [];
+                    return (
+                      <div key={interfaceConfig.identifier} className="space-y-3 rounded-lg border border-border/40 bg-card/70 p-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-medium">{interfaceConfig.name}</span>
+                          <Badge variant="secondary" className="font-mono text-[10px]">{interfaceConfig.type}</Badge>
+                          <span className="font-mono text-[10px] text-muted-foreground">{interfaceConfig.identifier}</span>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          {specs.map((spec, index) => {
+                            const value = values[index] || '';
+                            if (spec.kind === 'select') {
+                              return (
+                                <div key={spec.key} className="space-y-1.5">
+                                  <Label className="text-xs">{spec.label}</Label>
+                                  <Select value={value} onValueChange={(nextValue) => UpdateInterfaceValue(interfaceConfig.identifier, index, nextValue)}>
+                                    <SelectTrigger className="h-9"><SelectValue placeholder={`选择${spec.label}`} /></SelectTrigger>
+                                    <SelectContent>{spec.options?.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                </div>
+                              );
+                            }
+                            return (
+                              <div key={spec.key} className="space-y-1.5">
+                                <Label className="text-xs">{spec.label}</Label>
+                                <Input
+                                  type={spec.kind === 'number' ? 'number' : 'text'}
+                                  value={value}
+                                  min={spec.min}
+                                  max={spec.max}
+                                  onChange={(event) => UpdateInterfaceValue(interfaceConfig.identifier, index, event.target.value)}
+                                  placeholder={spec.ipAddress ? '例如：192.168.1.50' : `输入${spec.label}`}
+                                  className="h-9"
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {interfaceConfig.description && <p className="text-xs text-muted-foreground">{interfaceConfig.description}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           <div className="space-y-2">
             <Label>备注</Label>
             <Textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="填写设备用途或运维说明" className="min-h-20" />
@@ -517,6 +747,10 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
       ...BuildDataPointValues(model),
       ...(currentDevice?.modelId === model.id ? currentDevice.dataPointValues : {}),
     };
+    const firstInterface = GetModelInterfaces(model)[0];
+    const interfaceType = firstInterface?.type || currentDevice?.interfaceType || 'ETH';
+    const interfaceLabel = firstInterface?.name || currentDevice?.interfaceLabel || interfaceType;
+    const address = BuildInterfaceSummary(model, draft.interfaceConfigs);
     const firstDataPoint = model.dataPoints[0];
     const nextDevice: IDeviceInstance = {
       id: deviceId || `device-${Date.now()}`,
@@ -525,20 +759,21 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
       modelName: model.name,
       deviceType: model.name,
       category: GetDeviceCategory(model.type),
-      interfaceType: draft.interfaceType,
-      interfaceLabel: draft.interfaceLabel.trim() || draft.interfaceType,
+      interfaceType,
+      interfaceLabel,
       status: currentDevice?.status || 'normal',
       serialNumber: draft.serialNumber,
-      address: draft.address,
+      address,
       description: draft.description.trim(),
       location: draft.location.trim(),
       displayValue: firstDataPoint ? dataPointValues[firstDataPoint.identifier] : currentDevice?.displayValue || '-',
       displayUnit: firstDataPoint?.unit || currentDevice?.displayUnit || '',
       dataPointValues,
+      interfaceConfigs: draft.interfaceConfigs,
       lastUpdate: '刚刚',
       angle: currentDevice?.angle || 0,
       distance: currentDevice?.distance || 200,
-      group: GetDeviceGroup(draft.interfaceType),
+      group: GetDeviceGroup(interfaceType),
     };
     const nextDevices = deviceId
       ? devices.map((device) => device.id === deviceId ? nextDevice : device)
@@ -559,6 +794,11 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
         return currentDevices;
       }
       const dataPointValues = BuildDataPointValues(model);
+      const interfaceConfigs = BuildDefaultInterfaceConfigs(model);
+      const firstInterface = GetModelInterfaces(model)[0];
+      const interfaceType = firstInterface?.type || row.interfaceType || 'ETH';
+      const interfaceLabel = firstInterface?.name || row.interfaceLabel || interfaceType;
+      const address = row.address || BuildInterfaceSummary(model, interfaceConfigs);
       const firstDataPoint = model.dataPoints[0];
       const nextDevice: IDeviceInstance = {
         id: `device-${Date.now()}-${index}`,
@@ -567,20 +807,21 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
         modelName: model.name,
         deviceType: model.name,
         category: GetDeviceCategory(model.type),
-        interfaceType: row.interfaceType,
-        interfaceLabel: row.interfaceLabel || row.interfaceType,
+        interfaceType,
+        interfaceLabel,
         status: 'normal',
         serialNumber: row.serialNumber,
-        address: row.address,
+        address,
         description: row.description,
         location: row.location,
         displayValue: firstDataPoint ? dataPointValues[firstDataPoint.identifier] : '-',
         displayUnit: firstDataPoint?.unit || '',
         dataPointValues,
+        interfaceConfigs,
         lastUpdate: '刚刚',
         angle: 0,
         distance: 200,
-        group: GetDeviceGroup(row.interfaceType),
+        group: GetDeviceGroup(interfaceType),
       };
       return [nextDevice, ...currentDevices];
     }, devices);

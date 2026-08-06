@@ -28,6 +28,16 @@ export interface IDataPoint {
   description: string
 }
 
+export type DeviceModelInterfaceValue = string | number
+
+export interface IDeviceModelInterfaceConfig {
+  name: string
+  identifier: string
+  type: string
+  defaultConfig: DeviceModelInterfaceValue[]
+  description: string
+}
+
 export interface IDeviceModel {
   id: string
   name: string
@@ -45,6 +55,7 @@ export interface IDeviceModel {
   status: 'synced' | 'unsynced'
   tags: string[]
   applicableScenarios?: IDeviceModelScenario[]
+  interfaces?: IDeviceModelInterfaceConfig[]
 }
 
 export const MOCK_DEVICE_MODELS: IDeviceModel[] = [
@@ -68,6 +79,7 @@ export const MOCK_DEVICE_MODELS: IDeviceModel[] = [
     createdAt: '2025-03-15',
     status: 'synced',
     tags: ['温湿度', '传感器', 'Modbus'],
+    interfaces: [{ name: '温湿度 RS485 通信接口', identifier: 'temperatureRs485', type: 'RS485', defaultConfig: [-1, -1, 9600, 8, 1, 'N'], description: '数组依次表示槽位号、通道号、波特率、数据位、停止位和校验位' }],
   },
   {
     id: 'dm-2',
@@ -86,6 +98,7 @@ export const MOCK_DEVICE_MODELS: IDeviceModel[] = [
     createdAt: '2025-04-02',
     status: 'synced',
     tags: ['压力', '变送器', 'AI'],
+    interfaces: [{ name: '压力模拟量输入', identifier: 'pressureVi', type: 'VI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和电压输入通道号' }],
   },
   {
     id: 'dm-3',
@@ -111,6 +124,7 @@ export const MOCK_DEVICE_MODELS: IDeviceModel[] = [
     createdAt: '2025-05-10',
     status: 'unsynced',
     tags: ['电力', '仪表', '三相'],
+    interfaces: [{ name: '电力仪表 RS485 通信接口', identifier: 'powerMeterRs485', type: 'RS485', defaultConfig: [-1, -1, 9600, 8, 1, 'N'], description: '数组依次表示槽位号、通道号、波特率、数据位、停止位和校验位' }],
   },
   {
     id: 'dm-4',
@@ -139,6 +153,7 @@ export const MOCK_DEVICE_MODELS: IDeviceModel[] = [
     createdAt: '2025-06-01',
     status: 'synced',
     tags: ['变频器', '电机', '驱动器'],
+    interfaces: [{ name: '变频器 RS485 通信接口', identifier: 'inverterRs485', type: 'RS485', defaultConfig: [-1, -1, 9600, 8, 1, 'N'], description: '数组依次表示槽位号、通道号、波特率、数据位、停止位和校验位' }],
   },
   {
     id: 'dm-5',
@@ -162,6 +177,7 @@ export const MOCK_DEVICE_MODELS: IDeviceModel[] = [
     createdAt: '2025-06-15',
     status: 'synced',
     tags: ['电表', '计量', 'DL/T645'],
+    interfaces: [{ name: '智能电表 RS485 通信接口', identifier: 'meterRs485', type: 'RS485', defaultConfig: [-1, -1, 9600, 8, 1, 'N'], description: '数组依次表示槽位号、通道号、波特率、数据位、停止位和校验位' }],
   },
   {
     id: 'dm-6',
@@ -182,6 +198,7 @@ export const MOCK_DEVICE_MODELS: IDeviceModel[] = [
     createdAt: '2025-07-01',
     status: 'unsynced',
     tags: ['门禁', '控制器', '安防'],
+    interfaces: [{ name: '门禁控制器 TCP 接口', identifier: 'accessTcp', type: 'TCP_CLIENT', defaultConfig: ['', 502], description: '数组依次表示远端 IPv4 地址和端口号' }],
   },
 ];
 

@@ -13,8 +13,36 @@
  * limitations under the License.
  */
 
+import type { IDeviceModelInterfaceConfig } from '@/data/device-models';
+
 const ELF_SIGNATURE = [0x7f, 0x45, 0x4c, 0x46];
 const DSDK_TRIAD_FIELD_LENGTHS = [32, 64];
+
+const DRIVER_INTERFACE_CONFIGS: Record<string, IDeviceModelInterfaceConfig[]> = {
+  covi: [{ name: 'COVI RS485 通信接口', identifier: 'coviRS485', type: 'RS485', defaultConfig: [-1, -1, 9600, 8, 1, 'N'], description: '数组依次表示槽位号、通道号、波特率、数据位、停止位和校验位' }],
+  outSideBrightness: [
+    { name: '洞外亮度电流输入', identifier: 'outSideBrightnessCi', type: 'CI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和电流输入通道号，槽位号范围 1-6，通道号范围 1-8' },
+    { name: '亮度计故障反馈', identifier: 'luxFaultDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号，槽位号范围 1-6，通道号范围 1-16' },
+  ],
+  twoLaneIndicator: [
+    { name: '正面绿灯控制', identifier: 'frontGreenCtrlRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+    { name: '正面红灯控制', identifier: 'frontRedCtrlRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+    { name: '反面绿灯控制', identifier: 'backGreenCtrlRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+    { name: '反面红灯控制', identifier: 'backRedCtrlRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+    { name: '正面绿灯反馈', identifier: 'frontGreenCtrlDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+    { name: '正面红灯反馈', identifier: 'frontRedCtrlDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+    { name: '反面绿灯反馈', identifier: 'backGreenCtrlDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+    { name: '反面红灯反馈', identifier: 'backRedCtrlDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+  ],
+  rollDoor: [
+    { name: '开门控制', identifier: 'openRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+    { name: '停止控制', identifier: 'stopRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+    { name: '关门控制', identifier: 'closeRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+    { name: '上限位反馈', identifier: 'upLimitDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+    { name: '下限位反馈', identifier: 'downLimitDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+    { name: '故障反馈', identifier: 'faultDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+  ],
+};
 
 export interface IDeviceModelDriverMetadata {
   modelName: string;
@@ -23,6 +51,7 @@ export interface IDeviceModelDriverMetadata {
   deviceModel: string;
   typeIdentifier: string;
   protocolDescription: string;
+  interfaces: IDeviceModelInterfaceConfig[];
   loaded: boolean;
   message: string;
 }
@@ -89,6 +118,7 @@ function BuildUnloadedMetadata(message: string): IDeviceModelDriverMetadata {
     deviceModel: '',
     typeIdentifier: '',
     protocolDescription: '',
+    interfaces: [],
     loaded: false,
     message,
   };
@@ -120,6 +150,7 @@ export async function InspectDeviceModelDriver(file: File): Promise<IDeviceModel
     deviceModel: triad.deviceModel,
     typeIdentifier,
     protocolDescription: `已从 DSDK .so 驱动中读取设备三元组：${typeIdentifier}`,
+    interfaces: DRIVER_INTERFACE_CONFIGS[triad.deviceType] || [],
     loaded: true,
     message: '已自动读取驱动中的设备类型、厂商和设备型号，创建时不可修改。',
   };
