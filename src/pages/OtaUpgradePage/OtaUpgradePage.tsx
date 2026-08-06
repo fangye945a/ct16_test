@@ -1,10 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { CircleAlert, Cpu, FileUp, RefreshCw, RotateCcw, ShieldCheck, Upload, XCircle } from 'lucide-react';
+import {
+  CircleAlert,
+  Cpu,
+  FileUp,
+  RefreshCw,
+  RotateCcw,
+  ShieldCheck,
+  Upload,
+  XCircle,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import {
   CancelPrototypeOtaUpload,
@@ -17,129 +35,417 @@ import {
 } from '@/services/prototypeRuntime';
 
 const CHUNK_SIZE = 4 * 1024 * 1024;
+const RESUME_KEY = 'zaihong:ota-upload-resume';
 
-function FormatBytes(bytes: number): string {
-  return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+type UploadPhase = 'idle' | 'uploading' | 'upgrading' | 'succeeded' | 'failed';
+
+interface ResumeRecord {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  lastModified: number;
 }
 
-function GetPhaseLabel(upload: PrototypeOtaUpload | null): string {
-  if (!upload) return '等待选择升级包';
-  if (upload.status === 'uploading') return '正在上传固件包';
-  if (upload.status === 'validating') return '正在校验固件完整性';
-  if (upload.status === 'upgrading') return '正在写入升级分区';
-  if (upload.status === 'succeeded') return '升级任务已完成';
-  if (upload.status === 'failed') return '系统升级失败';
-  return '上传任务已取消';
+function GetPhaseFromStatus(status: PrototypeOtaUpload['status']): UploadPhase {
+  if (status === 'uploading') {
+    return 'uploading';
+  }
+  if (status === 'validating' || status === 'upgrading') {
+    return 'upgrading';
+  }
+  if (status === 'succeeded') {
+    return 'succeeded';
+  }
+  if (status === 'failed') {
+    return 'failed';
+  }
+  return 'idle';
+}
+
+function FormatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function GetResumeRecord(): ResumeRecord | null {
+  try {
+    const record = JSON.parse(localStorage.getItem(RESUME_KEY) || '') as ResumeRecord;
+    return record?.id ? record : null;
+  } catch {
+    return null;
+  }
+}
+
+function SaveResumeRecord(upload: PrototypeOtaUpload): void {
+  const record: ResumeRecord = {
+    id: upload.id,
+    fileName: upload.fileName,
+    fileSize: upload.fileSize,
+    lastModified: upload.lastModified,
+  };
+  localStorage.setItem(RESUME_KEY, JSON.stringify(record));
+}
+
+function ClearResumeRecord(): void {
+  localStorage.removeItem(RESUME_KEY);
+}
+
+function IsSameFile(file: File, upload: ResumeRecord | PrototypeOtaUpload): boolean {
+  return file.name === upload.fileName && file.size === upload.fileSize && file.lastModified === upload.lastModified;
 }
 
 export default function OtaUpgradePage() {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [phase, setPhase] = useState<UploadPhase>('idle');
   const [upload, setUpload] = useState<PrototypeOtaUpload | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [replacementFile, setReplacementFile] = useState<File | null>(null);
+  const [replaceDialogOpen, setReplaceDialogOpen] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const [transferring, setTransferring] = useState(false);
+  const [validatingFile, setValidatingFile] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const completedNoticeRef = useRef<string | null>(null);
 
-  const poll = useCallback(async (id: string) => {
+  const UpdateUploadStatus = useCallback((next: PrototypeOtaUpload) => {
+    setUpload(next);
+    setPhase(GetPhaseFromStatus(next.status));
+    if (next.status === 'uploading' || next.status === 'validating' || next.status === 'upgrading') {
+      SaveResumeRecord(next);
+      return;
+    }
+    ClearResumeRecord();
+  }, []);
+
+  const PollUpload = useCallback(async (id: string) => {
     try {
       const next = await GetPrototypeOtaUpload(id);
-      setUpload(next);
+      UpdateUploadStatus(next);
+      if (next.status === 'succeeded' && completedNoticeRef.current !== next.id) {
+        completedNoticeRef.current = next.id;
+        toast.success('系统升级已完成，原型未执行真实设备重启');
+      }
       return next;
     } catch (error) {
+      ClearResumeRecord();
+      setUpload(null);
+      setPhase('idle');
       toast.error(error instanceof Error ? error.message : '获取升级状态失败');
       return null;
     }
-  }, []);
+  }, [UpdateUploadStatus]);
+
+  useEffect(() => {
+    const resume = GetResumeRecord();
+    if (resume) {
+      void PollUpload(resume.id);
+    }
+  }, [PollUpload]);
 
   useEffect(() => {
     if (!upload || (upload.status !== 'validating' && upload.status !== 'upgrading')) {
       return undefined;
     }
     const timer = window.setInterval(() => {
-      void poll(upload.id).then((next) => {
-        if (next?.status === 'succeeded') {
-          toast.success('系统升级已完成，原型未执行真实设备重启');
-        }
-      });
-    }, 1_000);
+      void PollUpload(upload.id);
+    }, 1_500);
     return () => window.clearInterval(timer);
-  }, [poll, upload]);
+  }, [PollUpload, upload]);
 
-  const selectFile = async (file: File) => {
-    if (!file.name.endsWith('.img') && !file.name.endsWith('.bin')) {
-      toast.error('仅支持 .img 或 .bin 格式的固件包');
+  const TransferFile = useCallback(async (file: File, current: PrototypeOtaUpload) => {
+    let active = current;
+    while (active.receivedSize < file.size) {
+      const remainingSize = file.size - active.receivedSize;
+      active = await UploadPrototypeOtaChunk(active.id, Math.min(CHUNK_SIZE, remainingSize));
+      UpdateUploadStatus(active);
+    }
+    const completed = await CompletePrototypeOtaUpload(active.id);
+    UpdateUploadStatus(completed);
+    toast.success('固件上传完成，已提交模拟升级任务');
+  }, [UpdateUploadStatus]);
+
+  const ConfirmUpload = useCallback(async () => {
+    if (!selectedFile || transferring || validatingFile) {
       return;
     }
-    if (upload?.status === 'uploading' && (file.name !== upload.fileName || file.size !== upload.fileSize)) {
-      setReplacementFile(file);
-      return;
-    }
-    setSelectedFile(file);
-    if (upload && file.name === upload.fileName && file.size === upload.fileSize && file.lastModified === upload.lastModified) {
-      toast.info('检测到未完成的原型上传任务，可继续上传');
-    }
-  };
-
-  const startUpload = async () => {
-    if (!selectedFile || busy) return;
-    setBusy(true);
     try {
-      let current = await CreatePrototypeOtaUpload({
+      setTransferring(true);
+      const active = await CreatePrototypeOtaUpload({
         fileName: selectedFile.name,
         fileSize: selectedFile.size,
         lastModified: selectedFile.lastModified,
       });
-      setUpload(current);
-      while (current.status === 'uploading' && current.receivedSize < selectedFile.size) {
-        current = await UploadPrototypeOtaChunk(current.id, Math.min(CHUNK_SIZE, selectedFile.size - current.receivedSize));
-        setUpload(current);
-      }
-      current = await CompletePrototypeOtaUpload(current.id);
-      setUpload(current);
-      toast.success('固件上传完成，已提交模拟升级任务');
+      completedNoticeRef.current = null;
+      UpdateUploadStatus(active);
+      await TransferFile(selectedFile, active);
     } catch (error) {
+      setPhase('failed');
       toast.error(error instanceof Error ? error.message : '固件上传失败');
     } finally {
-      setBusy(false);
+      setTransferring(false);
     }
-  };
+  }, [TransferFile, UpdateUploadStatus, selectedFile, transferring, validatingFile]);
 
-  const replaceUpload = async () => {
-    if (!replacementFile) return;
-    setBusy(true);
+  const SelectFile = useCallback(async (file: File) => {
+    if (!file.name.toLocaleLowerCase().endsWith('.img')) {
+      toast.error('仅支持 CT16 Rockchip OTA .img 包');
+      return;
+    }
     try {
-      if (upload) {
-        await CancelPrototypeOtaUpload(upload.id);
+      setValidatingFile(true);
+      await new Promise((resolve) => window.setTimeout(resolve, 220));
+      const resume = GetResumeRecord();
+      const resumableUpload = upload?.status === 'uploading' ? upload : resume;
+      if (resumableUpload && !IsSameFile(file, resumableUpload)) {
+        setReplacementFile(file);
+        setReplaceDialogOpen(true);
+        return;
       }
+      setSelectedFile(file);
+    } finally {
+      setValidatingFile(false);
+    }
+  }, [upload]);
+
+  const ReplaceUpload = useCallback(async () => {
+    const resume = GetResumeRecord();
+    const resumableUpload = upload?.status === 'uploading' ? upload : resume;
+    if (!replacementFile || !resumableUpload) {
+      return;
+    }
+    try {
+      setReplacing(true);
+      await CancelPrototypeOtaUpload(resumableUpload.id);
+      ClearResumeRecord();
       setUpload(null);
+      setPhase('idle');
       setSelectedFile(replacementFile);
       setReplacementFile(null);
-      toast.success('已清理旧上传任务，请确认上传新固件');
+      setReplaceDialogOpen(false);
+      toast.success('未完成的固件上传已清理，请确认上传新文件');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : '替换上传任务失败');
+      toast.error(error instanceof Error ? error.message : '取消旧固件上传失败');
     } finally {
-      setBusy(false);
+      setReplacing(false);
     }
-  };
+  }, [replacementFile, upload]);
 
-  const retry = async () => {
-    if (!upload) return;
+  const RetryUpgrade = useCallback(async () => {
+    if (!upload) {
+      return;
+    }
     try {
-      setBusy(true);
-      setUpload(await RetryPrototypeOtaUpload(upload.id));
-      toast.success('已重新提交模拟升级任务');
+      const retried = await RetryPrototypeOtaUpload(upload.id);
+      completedNoticeRef.current = null;
+      UpdateUploadStatus(retried);
+      toast.success('系统升级已重新提交，原型不会重启设备');
     } catch (error) {
+      setPhase('failed');
       toast.error(error instanceof Error ? error.message : '重新执行升级失败');
-    } finally {
-      setBusy(false);
+    }
+  }, [UpdateUploadStatus, upload]);
+
+  const uploadProgress = upload ? Math.round(upload.receivedSize / Math.max(upload.fileSize, 1) * 100) : 0;
+  const isBusy = transferring || replacing || validatingFile || phase === 'upgrading';
+  const resumePending = upload?.status === 'uploading' && !selectedFile;
+
+  const OpenFilePicker = () => {
+    if (!isBusy) {
+      fileInputRef.current?.click();
     }
   };
 
-  const progress = !upload ? 0 : upload.status === 'uploading'
-    ? Math.round(upload.receivedSize / Math.max(upload.fileSize, 1) * 70)
-    : upload.status === 'validating' ? 78
-      : upload.status === 'upgrading' ? 88
-        : upload.status === 'succeeded' ? 100 : 0;
+  return (
+    <div className="space-y-6">
+      <Card className="border-border/40 bg-card/60">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Cpu className="size-4 text-primary" />
+            OTA 固件升级
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div
+            className={`rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
+              dragOver ? 'border-primary bg-primary/5' : 'border-border/40'
+            } ${isBusy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+            onClick={OpenFilePicker}
+            onDragOver={(event) => {
+              if (!isBusy) {
+                event.preventDefault();
+                setDragOver(true);
+              }
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDragOver(false);
+              if (!isBusy) {
+                const file = event.dataTransfer.files[0];
+                if (file) {
+                  void SelectFile(file);
+                }
+              }
+            }}
+          >
+            <FileUp className="mx-auto size-10 text-primary" />
+            <p className="mt-3 text-sm">
+              拖拽固件到此处，或{' '}
+              <button
+                type="button"
+                className="text-primary hover:underline disabled:cursor-not-allowed disabled:no-underline"
+                disabled={isBusy}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  OpenFilePicker();
+                }}
+              >
+                点击选择
+              </button>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">仅支持 CT16 Rockchip OTA .img 包，选择后将进行原型格式检查</p>
+            <input
+              ref={fileInputRef}
+              className="hidden"
+              type="file"
+              accept=".img"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  void SelectFile(file);
+                }
+                event.currentTarget.value = '';
+              }}
+            />
+          </div>
 
-  return <div className="space-y-6"><div><h1 className="text-lg font-semibold">OTA 升级</h1><p className="mt-1 text-sm text-muted-foreground">支持分片上传、断点续传、校验与可重试的原型升级流程。</p></div><div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]"><div className="space-y-6"><Card className="border-border/40 bg-card/60"><CardHeader><CardTitle className="flex items-center gap-2 text-base"><Cpu className="size-4 text-primary" />当前系统版本</CardTitle><CardDescription>双分区升级会将新固件写入备用分区，完成后由设备侧决定切换时机。</CardDescription></CardHeader><CardContent className="grid gap-4 sm:grid-cols-3"><div><p className="text-xs text-muted-foreground">当前版本</p><p className="mt-1 text-lg font-semibold">v2.1.4</p></div><div><p className="text-xs text-muted-foreground">构建日期</p><p className="mt-1 text-sm font-medium">2026-07-28</p></div><div><p className="text-xs text-muted-foreground">活动分区</p><Badge variant="outline" className="mt-1 border-success/30 bg-success/5 text-success">A 分区</Badge></div></CardContent></Card><Card className="border-border/40 bg-card/60"><CardHeader><CardTitle className="flex items-center gap-2 text-base"><FileUp className="size-4 text-primary" />上传升级包</CardTitle><CardDescription>原型会模拟传输和升级状态，不会写入设备存储或触发重启。</CardDescription></CardHeader><CardContent className="space-y-4"><div role="button" tabIndex={0} onClick={() => !busy && fileInputRef.current?.click()} onKeyDown={(event) => event.key === 'Enter' && fileInputRef.current?.click()} onDrop={(event) => { event.preventDefault(); setDragOver(false); const file = event.dataTransfer.files[0]; if (file) void selectFile(file); }} onDragOver={(event) => { event.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} className={`cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-colors ${dragOver ? 'border-primary bg-primary/5' : 'border-border/70 hover:border-primary/50 hover:bg-muted/30'}`}><Upload className="mx-auto size-7 text-primary" /><p className="mt-3 text-sm font-medium">拖拽固件到此处，或点击选择文件</p><p className="mt-1 text-xs text-muted-foreground">支持 .img 和 .bin 文件，上传会按 4 MiB 分片模拟</p><input ref={fileInputRef} type="file" className="hidden" accept=".img,.bin" onChange={(event) => { const file = event.target.files?.[0]; if (file) void selectFile(file); event.currentTarget.value = ''; }} /></div>{selectedFile && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/30 p-3"><div><p className="text-sm font-medium">{selectedFile.name}</p><p className="mt-1 text-xs text-muted-foreground">{FormatBytes(selectedFile.size)} · 已通过原型格式校验</p></div><Button size="sm" onClick={() => void startUpload()} disabled={busy || upload?.status === 'validating' || upload?.status === 'upgrading'}>{busy ? <RefreshCw className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}{upload?.status === 'uploading' && upload.receivedSize > 0 ? '继续上传' : '确认上传'}</Button></div>}{upload && <div className="rounded-lg border border-border/60 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-medium">{GetPhaseLabel(upload)}</p><p className="mt-1 text-xs text-muted-foreground">{upload.status === 'uploading' ? `${FormatBytes(upload.receivedSize)} / ${FormatBytes(upload.fileSize)}` : '正在使用原型任务状态机推进流程'}</p></div><Badge variant="outline">{upload.status}</Badge></div><Progress value={progress} className="mt-4" /><p className="mt-2 text-right text-xs text-muted-foreground">{progress}%</p>{upload.status === 'failed' && <Button className="mt-3" size="sm" variant="outline" onClick={() => void retry()}><RotateCcw className="size-3.5" />重新执行</Button>}{upload.status === 'succeeded' && <div className="mt-3 flex items-center gap-2 text-xs text-success"><ShieldCheck className="size-4" />升级包已写入模拟备用分区：{upload.finalPath}</div>}</div>}</CardContent></Card></div><aside className="space-y-4"><Card className="border-border/40 bg-card/60"><CardHeader><CardTitle className="text-base">升级安全说明</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p className="flex gap-2"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />真实设备应确认无关键任务运行后再执行升级。</p><p className="flex gap-2"><CircleAlert className="mt-0.5 size-4 shrink-0 text-warning" />本页面为原型模式，不会触发真实重启、分区写入或回滚。</p><p className="flex gap-2"><XCircle className="mt-0.5 size-4 shrink-0 text-destructive" />替换文件会取消原型中的未完成上传任务。</p></CardContent></Card><Card className="border-border/40 bg-card/60"><CardHeader><CardTitle className="text-base">升级记录</CardTitle></CardHeader><CardContent className="space-y-3 text-sm"><div className="border-l-2 border-success pl-3"><p className="font-medium">v2.1.4</p><p className="text-xs text-muted-foreground">2026-07-28 · 当前版本</p></div><div className="border-l-2 border-muted pl-3"><p className="font-medium">v2.1.3</p><p className="text-xs text-muted-foreground">2026-06-10 · 历史升级成功</p></div></CardContent></Card></aside></div><AlertDialog open={!!replacementFile} onOpenChange={(open) => !open && setReplacementFile(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>替换未完成的升级包？</AlertDialogTitle><AlertDialogDescription>当前存在未完成的原型上传任务。确认替换会取消旧任务，不会影响真实设备。</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>保留旧文件</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={(event) => { event.preventDefault(); void replaceUpload(); }}>{busy ? '正在替换…' : '确认替换'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></div>;
+          {selectedFile && !isBusy && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">已选择固件</p>
+                  <p className="mt-1 truncate text-sm text-muted-foreground">{selectedFile.name}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{FormatBytes(selectedFile.size)} · 已通过原型格式检查</p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button variant="outline" size="sm" onClick={OpenFilePicker}>重新选择</Button>
+                  <Button size="sm" onClick={() => void ConfirmUpload()}>
+                    <Upload className="mr-1.5 size-4" />
+                    确认上传
+                  </Button>
+                </div>
+              </div>
+              {upload?.status === 'uploading' && IsSameFile(selectedFile, upload) && (
+                <p className="mt-3 flex items-center gap-2 text-xs text-warning">
+                  <Upload className="size-3.5" />
+                  确认上传后将从 {FormatBytes(upload.receivedSize)} 继续传输。
+                </p>
+              )}
+            </div>
+          )}
+
+          {validatingFile && (
+            <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-primary">
+              <RefreshCw className="size-4 animate-spin" />
+              正在检查 OTA 包格式和产品标识...
+            </div>
+          )}
+          {resumePending && (
+            <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+              <CircleAlert className="size-4" />
+              上传已中断。请选择同一文件后确认上传以继续，或选择新文件并确认替换。
+            </div>
+          )}
+          {upload && (phase === 'uploading' || (phase === 'idle' && upload.status === 'uploading' && selectedFile)) && (
+            <ProgressInfo
+              label={`正在传输 ${upload.fileName}（${FormatBytes(upload.receivedSize)} / ${FormatBytes(upload.fileSize)}）`}
+              value={uploadProgress}
+            />
+          )}
+          {phase === 'upgrading' && <ProgressInfo label="固件已接收，正在执行模拟系统升级..." value={100} />}
+
+          {upload && (
+            <div className="rounded-lg border border-border/30 bg-muted/30 p-3 text-xs text-muted-foreground">
+              <div className="flex items-center justify-between gap-3">
+                <span className="truncate">会话：{upload.id}</span>
+                <Badge variant="outline">{upload.status}</Badge>
+              </div>
+              <p className="mt-2">修改时间：{new Date(upload.lastModified).toLocaleString()}</p>
+              {upload.finalPath && <p className="mt-1 break-all">模拟固件路径：{upload.finalPath}</p>}
+              {upload.error && <p className="mt-2 text-destructive">{upload.error}</p>}
+            </div>
+          )}
+
+          {phase === 'succeeded' && (
+            <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">
+              <ShieldCheck className="size-4" />
+              系统升级已完成，原型未执行真实设备重启。
+            </div>
+          )}
+          {phase === 'failed' && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+              <span className="flex items-center gap-2">
+                <XCircle className="size-4" />
+                系统升级失败
+              </span>
+              {upload && (
+                <Button variant="outline" size="sm" onClick={() => void RetryUpgrade()}>
+                  <RotateCcw className="mr-1 size-3.5" />
+                  重新执行
+                </Button>
+              )}
+            </div>
+          )}
+          {isBusy && (
+            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+              <RefreshCw className="size-3 animate-spin" />
+              请勿关闭页面；刷新后可重新选择同一文件并确认上传以继续。
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={replaceDialogOpen} onOpenChange={(open) => !replacing && setReplaceDialogOpen(open)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>替换未完成的固件上传？</AlertDialogTitle>
+            <AlertDialogDescription>
+              当前固件尚未上传完成。继续将删除已上传的模拟分片，随后需点击“确认上传”才会开始传输新文件。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={replacing}
+              onClick={() => setReplacementFile(null)}
+            >
+              保留旧文件
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={replacing}
+              onClick={(event) => {
+                event.preventDefault();
+                void ReplaceUpload();
+              }}
+            >
+              {replacing ? '正在替换…' : '确认替换'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function ProgressInfo({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between gap-3 text-sm">
+        <span className="min-w-0 truncate">{label}</span>
+        <span className="font-mono">{value}%</span>
+      </div>
+      <Progress value={value} className="h-2" />
+    </div>
+  );
 }

@@ -17,6 +17,11 @@ export interface IDeviceModel {
   type: string
   version: string
   description: string
+  vendor?: string
+  deviceModel?: string
+  typeIdentifier?: string
+  protocolDescription?: string
+  sourceFile?: string
   dataPoints: IDataPoint[]
   dataPointCount: number
   createdAt: string
