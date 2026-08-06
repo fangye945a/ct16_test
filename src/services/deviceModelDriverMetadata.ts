@@ -121,6 +121,6 @@ export async function InspectDeviceModelDriver(file: File): Promise<IDeviceModel
     typeIdentifier,
     protocolDescription: `已从 DSDK .so 驱动中读取设备三元组：${typeIdentifier}`,
     loaded: true,
-    message: '已自动读取驱动中的设备类型、厂商和设备型号，可继续补充或修改。',
+    message: '已自动读取驱动中的设备类型、厂商和设备型号，创建时不可修改。',
   };
 }

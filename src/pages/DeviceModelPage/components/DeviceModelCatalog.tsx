@@ -463,9 +463,15 @@ function ModelFormDialog({
 
   const HandleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!isEditing && !sourceFile) {
-      toast.error('请选择 DSDK 模型开发工程生成的 .so 驱动文件');
-      return;
+    if (!isEditing) {
+      if (!sourceFile) {
+        toast.error('请选择 DSDK 模型开发工程生成的 .so 驱动文件');
+        return;
+      }
+      if (!driverMetadata?.loaded) {
+        toast.error('未读取到设备三元组，请重新选择有效的 DSDK .so 驱动文件');
+        return;
+      }
     }
     if (!name.trim()) {
       toast.error('请输入设备模型名称');
@@ -558,12 +564,16 @@ function ModelFormDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>设备类型</Label>
-              <Select value={type} onValueChange={setType}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {deviceTypes.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              {isEditing ? (
+                <Select value={type} onValueChange={setType}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {deviceTypes.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={type} readOnly disabled className="h-9" />
+              )}
             </div>
             <div className="space-y-2">
               <Label>版本号</Label>
@@ -573,11 +583,25 @@ function ModelFormDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>设备厂商</Label>
-              <Input value={vendor} onChange={(event) => setVendor(event.target.value)} placeholder="输入设备厂商" className="h-9" />
+              <Input
+                value={vendor}
+                onChange={(event) => setVendor(event.target.value)}
+                placeholder="由 .so 驱动自动读取"
+                readOnly={!isEditing}
+                disabled={!isEditing}
+                className="h-9"
+              />
             </div>
             <div className="space-y-2">
               <Label>设备型号</Label>
-              <Input value={deviceModel} onChange={(event) => setDeviceModel(event.target.value)} placeholder="输入设备型号" className="h-9" />
+              <Input
+                value={deviceModel}
+                onChange={(event) => setDeviceModel(event.target.value)}
+                placeholder="由 .so 驱动自动读取"
+                readOnly={!isEditing}
+                disabled={!isEditing}
+                className="h-9"
+              />
             </div>
           </div>
           <div className="space-y-2">
@@ -588,10 +612,12 @@ function ModelFormDialog({
             <Label>模型描述</Label>
             <Textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="输入模型用途说明" className="min-h-20" />
           </div>
-          <div className="space-y-2">
-            <Label>协议描述</Label>
-            <Textarea value={protocolDescription} onChange={(event) => setProtocolDescription(event.target.value)} placeholder="输入协议描述" className="min-h-20" />
-          </div>
+          {isEditing && (
+            <div className="space-y-2">
+              <Label>协议描述</Label>
+              <Textarea value={protocolDescription} onChange={(event) => setProtocolDescription(event.target.value)} placeholder="输入协议描述" className="min-h-20" />
+            </div>
+          )}
           <ScenarioSelectionField value={applicableScenarios} onChange={setApplicableScenarios} />
           <div className="space-y-2">
             <Label>标签</Label>
@@ -999,7 +1025,7 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
           typeIdentifier: '',
           protocolDescription: '',
           loaded: false,
-          message: error instanceof Error ? error.message : '读取 .so 驱动中的模型信息失败，请手动补充。',
+          message: error instanceof Error ? error.message : '读取 .so 驱动中的模型信息失败，请重新选择有效驱动。',
         });
       }
     } finally {
@@ -1019,6 +1045,10 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
 
   const SaveNewModel = async (draft: ModelDraft) => {
     if (!createFile) {
+      return;
+    }
+    if (!createDriverMetadata?.loaded) {
+      toast.error('未读取到设备三元组，请重新选择有效的 DSDK .so 驱动文件');
       return;
     }
     const next = BuildMockModel(createFile, draft);
