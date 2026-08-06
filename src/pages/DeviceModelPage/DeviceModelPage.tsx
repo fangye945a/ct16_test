@@ -1,11 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MOCK_DEVICE_MODELS, type IDeviceModel } from '@/data/device-models';
+import { type IDeviceModel } from '@/data/device-models';
+import { GetPrototypeDeviceModels, SavePrototypeDeviceModels } from '@/services/prototypeDeviceModels';
 import DeviceInstanceManagement from './DeviceInstanceManagement';
 import DeviceModelCatalog from './components/DeviceModelCatalog';
 
 export default function DeviceModelPage() {
-  const [models, setModels] = useState<IDeviceModel[]>(MOCK_DEVICE_MODELS);
+  const [models, setModels] = useState<IDeviceModel[]>(() => GetPrototypeDeviceModels());
+
+  useEffect(() => {
+    SavePrototypeDeviceModels(models);
+  }, [models]);
 
   return (
     <Tabs defaultValue="instances" className="w-full space-y-6">

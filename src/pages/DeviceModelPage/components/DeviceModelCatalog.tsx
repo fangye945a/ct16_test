@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Cloud,
   CloudOff,
-  Database,
   Download,
   Eye,
   FileUp,
@@ -52,7 +51,22 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { GetDeviceInstances } from '@/data/device-instances';
-import { type IDeviceModel } from '@/data/device-models';
+import {
+  PRESET_DEVICE_MODEL_SCENARIOS,
+  type IDeviceModel,
+  type IDeviceModelScenario,
+} from '@/data/device-models';
+import {
+  MoveDeviceModelIcon,
+  RemoveDeviceModelIcon,
+  RemoveDeviceModelIcons,
+  SaveDeviceModelIcon,
+} from '@/services/deviceModelIcons';
+import {
+  GetPrototypeCustomDeviceModelScenarios,
+  SavePrototypeCustomDeviceModelScenarios,
+} from '@/services/prototypeDeviceModels';
+import { DeviceModelIcon, DeviceModelIconField } from './DeviceModelIcon';
 
 const DEVICE_TYPE_CATALOG = [
   {
@@ -92,6 +106,8 @@ interface ModelDraft {
   version: string;
   description: string;
   tags: string[];
+  applicableScenarios: IDeviceModelScenario[];
+  icon: Blob | null | undefined;
 }
 
 interface ImportItem {
@@ -100,6 +116,11 @@ interface ImportItem {
   model: IDeviceModel;
   status: ModelState;
   error?: string;
+}
+
+interface PendingCreateConflict {
+  model: IDeviceModel;
+  icon: Blob | null | undefined;
 }
 
 interface DeviceModelCatalogProps {
@@ -146,7 +167,33 @@ function BuildMockModel(file: File, draft: ModelDraft): IDeviceModel {
     createdAt: new Date().toISOString(),
     status: 'unsynced',
     tags: Array.from(new Set([...draft.tags, type, '本地导入'])),
+    applicableScenarios: draft.applicableScenarios,
   };
+}
+
+async function SaveModelIconChange(
+  modelId: string,
+  previousVersion: string | null,
+  nextVersion: string,
+  icon: Blob | null | undefined,
+): Promise<void> {
+  if (icon instanceof Blob) {
+    await SaveDeviceModelIcon(modelId, nextVersion, icon);
+    if (previousVersion && previousVersion !== nextVersion) {
+      await RemoveDeviceModelIcon(modelId, previousVersion);
+    }
+    return;
+  }
+  if (icon === null) {
+    await RemoveDeviceModelIcon(modelId, nextVersion);
+    if (previousVersion && previousVersion !== nextVersion) {
+      await RemoveDeviceModelIcon(modelId, previousVersion);
+    }
+    return;
+  }
+  if (previousVersion && previousVersion !== nextVersion) {
+    await MoveDeviceModelIcon(modelId, previousVersion, nextVersion);
+  }
 }
 
 function GetImportItem(file: File): ImportItem {
@@ -160,6 +207,8 @@ function GetImportItem(file: File): ImportItem {
       version: 'v1.0',
       description: `从本地模型包 ${file.name} 导入的设备模型。`,
       tags: ['本地导入'],
+      applicableScenarios: [],
+      icon: undefined,
     }),
     status: 'pending',
   };
@@ -181,7 +230,11 @@ function ModelDetailDialog({ model, onClose }: { model: IDeviceModel | null; onC
       <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto border-border/40 bg-card/95">
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-2">
-            <Boxes className="size-5 text-primary" />
+            <DeviceModelIcon
+              model={model}
+              className="size-8 shrink-0 overflow-hidden rounded-md"
+              imageClassName="size-8 shrink-0 rounded-md border border-border/60 object-cover"
+            />
             {model?.name}
             {model && <SyncStatus model={model} />}
           </DialogTitle>
@@ -214,6 +267,14 @@ function ModelDetailDialog({ model, onClose }: { model: IDeviceModel | null; onC
                 )) : <span className="text-muted-foreground">暂无标签</span>}
               </div>
             </div>
+            <div>
+              <p className="text-xs text-muted-foreground">适用场景</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(model.applicableScenarios || []).length > 0 ? model.applicableScenarios?.map((scenario) => (
+                  <Badge key={scenario.identifier} variant="secondary" className="text-[10px]">{scenario.name}</Badge>
+                )) : <span className="text-muted-foreground">暂未选择</span>}
+              </div>
+            </div>
           </div>
         )}
         <DialogFooter>
@@ -233,6 +294,107 @@ function DetailItem({ label, value, fullWidth = false }: { label: string; value:
   );
 }
 
+function IsScenarioIdentifier(value: string): boolean {
+  return /^[a-z][a-z0-9_-]{0,63}$/.test(value);
+}
+
+function ScenarioSelectionField({
+  value,
+  onChange,
+}: {
+  value: IDeviceModelScenario[];
+  onChange: (scenarios: IDeviceModelScenario[]) => void;
+}) {
+  const [customScenarios, setCustomScenarios] = useState<IDeviceModelScenario[]>(() => GetPrototypeCustomDeviceModelScenarios());
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customIdentifier, setCustomIdentifier] = useState('');
+  const scenarios = [...PRESET_DEVICE_MODEL_SCENARIOS, ...customScenarios];
+
+  const ToggleScenario = (scenario: IDeviceModelScenario, checked: boolean) => {
+    if (checked) {
+      onChange(value.some((item) => item.identifier === scenario.identifier) ? value : [...value, scenario]);
+      return;
+    }
+    onChange(value.filter((item) => item.identifier !== scenario.identifier));
+  };
+
+  const AddCustomScenario = () => {
+    const name = customName.trim();
+    const identifier = customIdentifier.trim().toLocaleLowerCase();
+    if (!name || !identifier) {
+      toast.error('请填写场景名称和场景标识符');
+      return;
+    }
+    if (!IsScenarioIdentifier(identifier)) {
+      toast.error('场景标识符需以小写字母开头，仅支持小写字母、数字、连字符和下划线');
+      return;
+    }
+    if (scenarios.some((item) => item.identifier === identifier)) {
+      toast.error('场景标识符已存在');
+      return;
+    }
+    const nextScenario: IDeviceModelScenario = { name, identifier, source: 'custom' };
+    const nextCustomScenarios = [...customScenarios, nextScenario];
+    try {
+      SavePrototypeCustomDeviceModelScenarios(nextCustomScenarios);
+      setCustomScenarios(nextCustomScenarios);
+      onChange([...value, nextScenario]);
+      setCustomName('');
+      setCustomIdentifier('');
+      setCustomOpen(false);
+    } catch {
+      toast.error('保存自定义场景失败');
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <Label>适用场景</Label>
+        <Button type="button" variant="outline" size="sm" onClick={() => setCustomOpen(true)}>
+          <Plus className="size-3.5" />
+          自定义场景
+        </Button>
+      </div>
+      <div className="grid gap-2 rounded-lg border border-border/50 p-3 sm:grid-cols-2">
+        {scenarios.map((scenario) => {
+          const checked = value.some((item) => item.identifier === scenario.identifier);
+          return (
+            <label key={scenario.identifier} className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-sm hover:bg-muted/50">
+              <Checkbox checked={checked} onCheckedChange={(nextChecked) => ToggleScenario(scenario, nextChecked === true)} />
+              <span className="min-w-0 flex-1 truncate">{scenario.name}</span>
+              <span className="truncate font-mono text-[10px] text-muted-foreground">{scenario.identifier}</span>
+            </label>
+          );
+        })}
+      </div>
+      <Dialog open={customOpen} onOpenChange={setCustomOpen}>
+        <DialogContent className="border-border/40 bg-card/95 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>创建自定义场景</DialogTitle>
+            <DialogDescription>场景标识符创建后不可重复。</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="custom-scenario-name">场景名称</Label>
+              <Input id="custom-scenario-name" value={customName} onChange={(event) => setCustomName(event.target.value)} placeholder="例如 港口装卸场景" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="custom-scenario-identifier">场景标识符</Label>
+              <Input id="custom-scenario-identifier" value={customIdentifier} onChange={(event) => setCustomIdentifier(event.target.value)} placeholder="例如 port-handling" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setCustomOpen(false)}>取消</Button>
+            <Button type="button" onClick={AddCustomScenario}>创建并选择</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function ModelFormDialog({
   model,
   sourceFile,
@@ -242,7 +404,7 @@ function ModelFormDialog({
   model: IDeviceModel | null;
   sourceFile: File | null;
   onClose: () => void;
-  onSaved: (draft: ModelDraft) => void;
+  onSaved: (draft: ModelDraft) => Promise<void>;
 }) {
   const isEditing = Boolean(model);
   const [name, setName] = useState('');
@@ -250,6 +412,9 @@ function ModelFormDialog({
   const [version, setVersion] = useState('v1.0');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
+  const [applicableScenarios, setApplicableScenarios] = useState<IDeviceModelScenario[]>([]);
+  const [icon, setIcon] = useState<Blob | null | undefined>(undefined);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!model && !sourceFile) {
@@ -260,21 +425,32 @@ function ModelFormDialog({
     setVersion(model?.version || 'v1.0');
     setDescription(model?.description || '');
     setTags(model?.tags.join(', ') || '');
+    setApplicableScenarios(model?.applicableScenarios || []);
+    setIcon(undefined);
   }, [model, sourceFile]);
 
-  const HandleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const HandleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!name.trim()) {
       toast.error('请输入设备模型名称');
       return;
     }
-    onSaved({
-      name: name.trim(),
-      type,
-      version: version.trim() || 'v1.0',
-      description: description.trim(),
-      tags: SplitTags(tags),
-    });
+    try {
+      setSaving(true);
+      await onSaved({
+        name: name.trim(),
+        type,
+        version: version.trim() || 'v1.0',
+        description: description.trim(),
+        tags: SplitTags(tags),
+        applicableScenarios,
+        icon,
+      });
+    } catch {
+      // 保存失败提示由模型目录统一展示，表单保持当前输入内容。
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -296,6 +472,7 @@ function ModelFormDialog({
               <Input value={sourceFile?.name || ''} disabled className="h-9" />
             </div>
           )}
+          <DeviceModelIconField model={model} value={icon} onChange={setIcon} />
           <div className="space-y-2">
             <Label>模型名称</Label>
             <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="输入设备模型名称" className="h-9" />
@@ -319,13 +496,17 @@ function ModelFormDialog({
             <Label>模型描述</Label>
             <Textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="输入模型用途和协议说明" className="min-h-20" />
           </div>
+          <ScenarioSelectionField value={applicableScenarios} onChange={setApplicableScenarios} />
           <div className="space-y-2">
             <Label>标签</Label>
             <Input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="多个标签以逗号分隔" className="h-9" />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>取消</Button>
-            <Button type="submit">{isEditing ? '保存修改' : '创建模型'}</Button>
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>取消</Button>
+            <Button type="submit" disabled={saving}>
+              {saving && <Loader2 className="size-3.5 animate-spin" />}
+              {isEditing ? '保存修改' : '创建模型'}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -568,6 +749,7 @@ function LocalExportDialog({ models, open, onClose }: { models: IDeviceModel[]; 
         name: model.name,
         type: model.type,
         version: model.version,
+        applicableScenarios: model.applicableScenarios || [],
         sourceFile: model.sourceFile || null,
         exportedAt: new Date().toISOString(),
       }));
@@ -646,13 +828,16 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
   const [detailModel, setDetailModel] = useState<IDeviceModel | null>(null);
   const [editModel, setEditModel] = useState<IDeviceModel | null>(null);
   const [deleteModel, setDeleteModel] = useState<IDeviceModel | null>(null);
-  const [createConflict, setCreateConflict] = useState<IDeviceModel | null>(null);
+  const [createConflict, setCreateConflict] = useState<PendingCreateConflict | null>(null);
 
   const types = useMemo(() => Array.from(new Set(models.map((model) => model.type.trim()).filter(Boolean))), [models]);
   const filteredModels = useMemo(() => {
     const keyword = searchTerm.trim().toLocaleLowerCase();
     return models.filter((model) => {
-      const matchedKeyword = !keyword || model.name.toLocaleLowerCase().includes(keyword) || model.tags.some((tag) => tag.toLocaleLowerCase().includes(keyword));
+      const matchedKeyword = !keyword
+        || model.name.toLocaleLowerCase().includes(keyword)
+        || model.tags.some((tag) => tag.toLocaleLowerCase().includes(keyword))
+        || (model.applicableScenarios || []).some((scenario) => `${scenario.name} ${scenario.identifier}`.toLocaleLowerCase().includes(keyword));
       const matchedType = typeFilter === 'all' || model.type === typeFilter;
       return matchedKeyword && matchedType;
     });
@@ -670,37 +855,50 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
     setCreateFile(file);
   };
 
-  const SaveNewModel = (draft: ModelDraft) => {
+  const SaveNewModel = async (draft: ModelDraft) => {
     if (!createFile) {
       return;
     }
     const next = BuildMockModel(createFile, draft);
     if (models.some((model) => GetModelKey(model) === GetModelKey(next))) {
-      setCreateConflict(next);
+      setCreateConflict({ model: next, icon: draft.icon });
       return;
     }
-    setModels((current) => [next, ...current]);
-    setCreateFile(null);
-    toast.success(`模型“${next.name}”已创建`);
+    try {
+      await SaveModelIconChange(next.id, null, next.version, draft.icon);
+      setModels((current) => [next, ...current]);
+      setCreateFile(null);
+      toast.success(`模型“${next.name}”已创建`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '保存模型图标失败');
+      throw error;
+    }
   };
 
-  const SaveEditedModel = (draft: ModelDraft) => {
+  const SaveEditedModel = async (draft: ModelDraft) => {
     if (!editModel) {
       return;
     }
-    const next = { ...editModel, ...draft, tags: Array.from(new Set(draft.tags)) };
+    const { icon, ...modelDraft } = draft;
+    const next = { ...editModel, ...modelDraft, tags: Array.from(new Set(draft.tags)) };
     const duplicate = models.find((model) => model.id !== editModel.id && GetModelKey(model) === GetModelKey(next));
     if (duplicate) {
       toast.error(`已存在同名同类型模型“${duplicate.name}”`);
       return;
     }
-    setModels((current) => current.map((model) => model.id === next.id ? next : model));
-    setDetailModel((current) => current?.id === next.id ? next : current);
-    setEditModel(null);
-    toast.success('设备模型已更新');
+    try {
+      await SaveModelIconChange(next.id, editModel.version, next.version, icon);
+      setModels((current) => current.map((model) => model.id === next.id ? next : model));
+      setDetailModel((current) => current?.id === next.id ? next : current);
+      setEditModel(null);
+      toast.success('设备模型已更新');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '保存模型图标失败');
+      throw error;
+    }
   };
 
-  const ConfirmDelete = () => {
+  const ConfirmDelete = async () => {
     if (!deleteModel) {
       return;
     }
@@ -709,19 +907,31 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
       setDeleteModel(null);
       return;
     }
+    try {
+      await RemoveDeviceModelIcons(deleteModel.id);
+    } catch {
+      toast.error('模型已删除，但清理关联图标失败');
+    }
     setModels((current) => current.filter((model) => model.id !== deleteModel.id));
     setDeleteModel(null);
     toast.success('设备模型已删除');
   };
 
-  const ReplaceCreatedModel = () => {
+  const ReplaceCreatedModel = async () => {
     if (!createConflict) {
       return;
     }
-    setModels((current) => [createConflict, ...current.filter((model) => GetModelKey(model) !== GetModelKey(createConflict))]);
-    setCreateConflict(null);
-    setCreateFile(null);
-    toast.success('原型设备模型已替换');
+    try {
+      const matchingModels = models.filter((model) => GetModelKey(model) === GetModelKey(createConflict.model));
+      await SaveModelIconChange(createConflict.model.id, null, createConflict.model.version, createConflict.icon);
+      await Promise.all(matchingModels.map((model) => RemoveDeviceModelIcons(model.id)));
+      setModels((current) => [createConflict.model, ...current.filter((model) => GetModelKey(model) !== GetModelKey(createConflict.model))]);
+      setCreateConflict(null);
+      setCreateFile(null);
+      toast.success('原型设备模型已替换');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '替换设备模型失败');
+    }
   };
 
   return (
@@ -798,9 +1008,11 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2.5">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                        <Database className="size-4 text-primary" />
-                      </div>
+                      <DeviceModelIcon
+                        model={model}
+                        className="size-9 shrink-0 overflow-hidden rounded-xl"
+                        imageClassName="size-9 shrink-0 rounded-xl border border-border/60 object-cover"
+                      />
                       <div className="min-w-0">
                         <CardTitle className="truncate text-sm">{model.name}</CardTitle>
                         <CardDescription className="text-xs">{model.type} · {model.version || '-'}</CardDescription>
@@ -819,6 +1031,11 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
                   {model.tags.length > 0 && (
                     <div className="mb-3 flex flex-wrap gap-1">
                       {model.tags.map((tag) => <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>)}
+                    </div>
+                  )}
+                  {(model.applicableScenarios || []).length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-1">
+                      {model.applicableScenarios?.map((scenario) => <Badge key={scenario.identifier} variant="secondary" className="text-[10px]">{scenario.name}</Badge>)}
                     </div>
                   )}
                   <div className="mt-auto flex items-center gap-1.5 border-t border-border/30 pt-3">
@@ -880,7 +1097,7 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={ConfirmDelete}>确认删除</AlertDialogAction>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => void ConfirmDelete()}>确认删除</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -893,7 +1110,7 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={ReplaceCreatedModel}>继续替换</AlertDialogAction>
+            <AlertDialogAction onClick={() => void ReplaceCreatedModel()}>继续替换</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

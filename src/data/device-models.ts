@@ -1,4 +1,21 @@
-// EXPORTS: IDeviceModel, IDataPoint, MOCK_DEVICE_MODELS, MOCK_CLOUD_DEVICE_MODELS
+// EXPORTS: IDeviceModel, IDataPoint, IDeviceModelScenario, PRESET_DEVICE_MODEL_SCENARIOS, MOCK_DEVICE_MODELS, MOCK_CLOUD_DEVICE_MODELS
+
+export type DeviceModelScenarioSource = 'preset' | 'custom'
+
+export interface IDeviceModelScenario {
+  name: string
+  identifier: string
+  source: DeviceModelScenarioSource
+}
+
+export const PRESET_DEVICE_MODEL_SCENARIOS: IDeviceModelScenario[] = [
+  { name: '隧道场景', identifier: 'tunnel', source: 'preset' },
+  { name: '沙盘场景', identifier: 'sandbox', source: 'preset' },
+  { name: '工业控制场景', identifier: 'industrial-control', source: 'preset' },
+  { name: '智慧水利场景', identifier: 'water-conservancy', source: 'preset' },
+  { name: '能源管理场景', identifier: 'energy-management', source: 'preset' },
+  { name: '园区安防场景', identifier: 'campus-security', source: 'preset' },
+]
 
 export interface IDataPoint {
   id: string
@@ -27,6 +44,7 @@ export interface IDeviceModel {
   createdAt: string
   status: 'synced' | 'unsynced'
   tags: string[]
+  applicableScenarios?: IDeviceModelScenario[]
 }
 
 export const MOCK_DEVICE_MODELS: IDeviceModel[] = [
