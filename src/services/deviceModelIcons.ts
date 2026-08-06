@@ -14,8 +14,14 @@
  */
 
 const DATABASE_NAME = 'zaihong-device-model-assets';
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 const ICON_STORE_NAME = 'model-icons';
+const DRIVER_STORE_NAME = 'model-drivers';
+
+export interface DeviceModelDriverAsset {
+  fileName: string;
+  blob: Blob;
+}
 
 function GetIconKey(modelId: string, version: string): string {
   return `${modelId}:${version.trim() || 'v1.0'}`;
@@ -28,6 +34,9 @@ function OpenDatabase(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains(ICON_STORE_NAME)) {
         request.result.createObjectStore(ICON_STORE_NAME);
+      }
+      if (!request.result.objectStoreNames.contains(DRIVER_STORE_NAME)) {
+        request.result.createObjectStore(DRIVER_STORE_NAME);
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -124,10 +133,14 @@ export async function MoveDeviceModelIcon(modelId: string, fromVersion: string, 
  * @param modelId 模型唯一标识。
  */
 export async function RemoveDeviceModelIcons(modelId: string): Promise<void> {
+  await RemoveModelAssets(ICON_STORE_NAME, modelId);
+}
+
+async function RemoveModelAssets(storeName: string, modelId: string): Promise<void> {
   const database = await OpenDatabase();
   try {
-    const transaction = database.transaction(ICON_STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(ICON_STORE_NAME);
+    const transaction = database.transaction(storeName, 'readwrite');
+    const store = transaction.objectStore(storeName);
     const prefix = `${modelId}:`;
     const request = store.openCursor();
     request.onsuccess = () => {
@@ -144,4 +157,93 @@ export async function RemoveDeviceModelIcons(modelId: string): Promise<void> {
   } finally {
     database.close();
   }
+}
+
+/**
+ * 读取指定模型版本关联的动态库文件。
+ *
+ * @param modelId 模型唯一标识。
+ * @param version 模型版本号。
+ * @returns 动态库文件及其文件名，不存在时返回 null。
+ */
+export async function GetDeviceModelDriver(modelId: string, version: string): Promise<DeviceModelDriverAsset | null> {
+  const database = await OpenDatabase();
+  try {
+    const transaction = database.transaction(DRIVER_STORE_NAME, 'readonly');
+    const request = transaction.objectStore(DRIVER_STORE_NAME).get(GetIconKey(modelId, version));
+    const result = await new Promise<unknown>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error('读取模型动态库失败'));
+    });
+    if (!result || typeof result !== 'object') {
+      return null;
+    }
+    const asset = result as Partial<DeviceModelDriverAsset>;
+    return typeof asset.fileName === 'string' && asset.blob instanceof Blob ? { fileName: asset.fileName, blob: asset.blob } : null;
+  } finally {
+    database.close();
+  }
+}
+
+/**
+ * 保存指定模型版本关联的动态库文件。
+ *
+ * @param modelId 模型唯一标识。
+ * @param version 模型版本号。
+ * @param driver 动态库文件及其原始文件名。
+ */
+export async function SaveDeviceModelDriver(modelId: string, version: string, driver: DeviceModelDriverAsset): Promise<void> {
+  const database = await OpenDatabase();
+  try {
+    const transaction = database.transaction(DRIVER_STORE_NAME, 'readwrite');
+    transaction.objectStore(DRIVER_STORE_NAME).put(driver, GetIconKey(modelId, version));
+    await CompleteTransaction(transaction);
+  } finally {
+    database.close();
+  }
+}
+
+/**
+ * 移除指定模型版本关联的动态库文件。
+ *
+ * @param modelId 模型唯一标识。
+ * @param version 模型版本号。
+ */
+export async function RemoveDeviceModelDriver(modelId: string, version: string): Promise<void> {
+  const database = await OpenDatabase();
+  try {
+    const transaction = database.transaction(DRIVER_STORE_NAME, 'readwrite');
+    transaction.objectStore(DRIVER_STORE_NAME).delete(GetIconKey(modelId, version));
+    await CompleteTransaction(transaction);
+  } finally {
+    database.close();
+  }
+}
+
+/**
+ * 将动态库关联迁移到同一模型的新版本。
+ *
+ * @param modelId 模型唯一标识。
+ * @param fromVersion 原版本号。
+ * @param toVersion 新版本号。
+ */
+export async function MoveDeviceModelDriver(modelId: string, fromVersion: string, toVersion: string): Promise<void> {
+  if (fromVersion === toVersion) {
+    return;
+  }
+  const driver = await GetDeviceModelDriver(modelId, fromVersion);
+  if (!driver) {
+    return;
+  }
+  await SaveDeviceModelDriver(modelId, toVersion, driver);
+  await RemoveDeviceModelDriver(modelId, fromVersion);
+}
+
+/**
+ * 移除某一模型所有版本关联的动态库文件。
+ *
+ * @param modelId 模型唯一标识。
+ */
+export async function RemoveDeviceModelDrivers(modelId: string): Promise<void> {
+  await RemoveModelAssets(DRIVER_STORE_NAME, modelId);
 }

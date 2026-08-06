@@ -57,11 +57,20 @@ import {
   type IDeviceModelScenario,
 } from '@/data/device-models';
 import {
+  MoveDeviceModelDriver,
   MoveDeviceModelIcon,
+  RemoveDeviceModelDriver,
+  RemoveDeviceModelDrivers,
   RemoveDeviceModelIcon,
   RemoveDeviceModelIcons,
+  SaveDeviceModelDriver,
   SaveDeviceModelIcon,
+  type DeviceModelDriverAsset,
 } from '@/services/deviceModelIcons';
+import {
+  CreateDeviceModelZipPackage,
+  ParseDeviceModelZipPackage,
+} from '@/services/deviceModelPackages';
 import {
   GetPrototypeCustomDeviceModelScenarios,
   SavePrototypeCustomDeviceModelScenarios,
@@ -113,7 +122,9 @@ interface ModelDraft {
 interface ImportItem {
   id: string;
   file: File;
-  model: IDeviceModel;
+  model: IDeviceModel | null;
+  driver: DeviceModelDriverAsset | null;
+  icon: Blob | null;
   status: ModelState;
   error?: string;
 }
@@ -121,6 +132,7 @@ interface ImportItem {
 interface PendingCreateConflict {
   model: IDeviceModel;
   icon: Blob | null | undefined;
+  driver: DeviceModelDriverAsset;
 }
 
 interface DeviceModelCatalogProps {
@@ -171,47 +183,36 @@ function BuildMockModel(file: File, draft: ModelDraft): IDeviceModel {
   };
 }
 
-async function SaveModelIconChange(
+async function SaveModelAssetsChange(
   modelId: string,
   previousVersion: string | null,
   nextVersion: string,
   icon: Blob | null | undefined,
+  driver: DeviceModelDriverAsset | null,
 ): Promise<void> {
   if (icon instanceof Blob) {
     await SaveDeviceModelIcon(modelId, nextVersion, icon);
     if (previousVersion && previousVersion !== nextVersion) {
       await RemoveDeviceModelIcon(modelId, previousVersion);
     }
-    return;
-  }
-  if (icon === null) {
+  } else if (icon === null) {
     await RemoveDeviceModelIcon(modelId, nextVersion);
     if (previousVersion && previousVersion !== nextVersion) {
       await RemoveDeviceModelIcon(modelId, previousVersion);
     }
+  } else if (previousVersion && previousVersion !== nextVersion) {
+    await MoveDeviceModelIcon(modelId, previousVersion, nextVersion);
+  }
+  if (driver) {
+    await SaveDeviceModelDriver(modelId, nextVersion, driver);
+    if (previousVersion && previousVersion !== nextVersion) {
+      await RemoveDeviceModelDriver(modelId, previousVersion);
+    }
     return;
   }
   if (previousVersion && previousVersion !== nextVersion) {
-    await MoveDeviceModelIcon(modelId, previousVersion, nextVersion);
+    await MoveDeviceModelDriver(modelId, previousVersion, nextVersion);
   }
-}
-
-function GetImportItem(file: File): ImportItem {
-  const name = GetBaseName(file.name);
-  return {
-    id: `${file.name}-${file.lastModified}-${file.size}`,
-    file,
-    model: BuildMockModel(file, {
-      name,
-      type: GetDefaultDeviceType(),
-      version: 'v1.0',
-      description: `从本地模型包 ${file.name} 导入的设备模型。`,
-      tags: ['本地导入'],
-      applicableScenarios: [],
-      icon: undefined,
-    }),
-    status: 'pending',
-  };
 }
 
 function SyncStatus({ model }: { model: IDeviceModel }) {
@@ -528,6 +529,7 @@ function LocalImportDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<ImportItem[]>([]);
   const [importing, setImporting] = useState(false);
+  const [inspecting, setInspecting] = useState(false);
   const [pendingConflictIndex, setPendingConflictIndex] = useState<number | null>(null);
 
   const UpdateItem = (index: number, status: ModelState, error?: string) => {
@@ -536,14 +538,17 @@ function LocalImportDialog({
 
   const ProcessQueue = async (startIndex: number, policy: ConflictPolicy = 'ask') => {
     const knownKeys = new Set(models.map(GetModelKey));
+    const knownIds = new Set(models.map((model) => model.id));
+    const modelByKey = new Map(models.map((model) => [GetModelKey(model), model]));
+    const modelById = new Map(models.map((model) => [model.id, model]));
     setImporting(true);
     for (let index = startIndex; index < items.length; index += 1) {
       const item = items[index];
-      if (item.status === 'success' || item.status === 'skipped') {
+      if (!item.model || !item.driver || item.status === 'success' || item.status === 'skipped' || item.status === 'error') {
         continue;
       }
       const key = GetModelKey(item.model);
-      const conflict = knownKeys.has(key);
+      const conflict = knownKeys.has(key) || knownIds.has(item.model.id);
       if (conflict && policy === 'ask') {
         UpdateItem(index, 'conflict');
         setPendingConflictIndex(index);
@@ -556,12 +561,19 @@ function LocalImportDialog({
       }
       try {
         UpdateItem(index, 'importing');
-        await new Promise((resolve) => window.setTimeout(resolve, 180));
+        const matchingModels = Array.from(new Set([modelByKey.get(key), modelById.get(item.model.id)].filter(Boolean)));
+        if (conflict) {
+          await Promise.all(matchingModels.flatMap((model) => [RemoveDeviceModelIcons(model.id), RemoveDeviceModelDrivers(model.id)]));
+        }
+        await SaveModelAssetsChange(item.model.id, null, item.model.version, item.icon, item.driver);
         setModels((current) => {
-          const withoutConflict = conflict ? current.filter((model) => GetModelKey(model) !== key) : current;
+          const withoutConflict = conflict ? current.filter((model) => GetModelKey(model) !== key && model.id !== item.model?.id) : current;
           return [item.model, ...withoutConflict];
         });
         knownKeys.add(key);
+        knownIds.add(item.model.id);
+        modelByKey.set(key, item.model);
+        modelById.set(item.model.id, item.model);
         UpdateItem(index, 'success');
       } catch (error) {
         UpdateItem(index, 'error', error instanceof Error ? error.message : '导入失败');
@@ -572,22 +584,50 @@ function LocalImportDialog({
     toast.success('本地设备模型导入完成');
   };
 
-  const SelectPackages = (files: FileList | null) => {
+  const SelectPackages = async (files: FileList | null) => {
     if (!files) {
       return;
     }
     const selected = Array.from(files);
-    const invalid = selected.find((file) => !/\.(so|zip)$/i.test(file.name));
+    const invalid = selected.find((file) => !/\.zip$/i.test(file.name));
     if (invalid) {
-      toast.error('仅支持 .so 或 .zip 设备模型包');
+      toast.error('仅支持 ZIP 格式的设备模型包');
       return;
     }
-    setItems(selected.map(GetImportItem));
-    setPendingConflictIndex(null);
+    try {
+      setInspecting(true);
+      const parsedItems = await Promise.all(selected.map(async (file) => {
+        try {
+          const packages = await ParseDeviceModelZipPackage(file);
+          return packages.map((item, index): ImportItem => ({
+            id: `${file.name}-${item.model.id}-${item.model.version}-${index}`,
+            file,
+            model: item.model,
+            driver: item.driver,
+            icon: item.icon,
+            status: 'pending',
+          }));
+        } catch (error) {
+          return [{
+            id: `${file.name}-${file.lastModified}-${file.size}`,
+            file,
+            model: null,
+            driver: null,
+            icon: null,
+            status: 'error' as const,
+            error: error instanceof Error ? error.message : '解析 ZIP 模型包失败',
+          }];
+        }
+      }));
+      setItems(parsedItems.flat());
+      setPendingConflictIndex(null);
+    } finally {
+      setInspecting(false);
+    }
   };
 
   const Close = () => {
-    if (importing) {
+    if (importing || inspecting) {
       return;
     }
     setItems([]);
@@ -607,23 +647,23 @@ function LocalImportDialog({
               <Archive className="size-5 text-primary" />
               本地导入设备模型
             </DialogTitle>
-            <DialogDescription>选择 DSDK 模型文件或模型包。原型会登记模型元信息，不会解析或加载动态库。</DialogDescription>
+            <DialogDescription>选择包含 model.json、SO 文件和可选 PNG 图标的 ZIP 模型包。</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <input
               ref={fileInputRef}
               className="hidden"
               type="file"
-              accept=".so,.zip"
+              accept=".zip,application/zip"
               multiple
               onChange={(event) => {
-                SelectPackages(event.target.files);
+                void SelectPackages(event.target.files);
                 event.currentTarget.value = '';
               }}
             />
-            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importing || inspecting}>
               <FileUp className="mr-1.5 size-4" />
-              选择模型包
+              {inspecting ? '正在解析模型包' : '选择 ZIP 模型包'}
             </Button>
             {items.length > 0 && (
               <div className="space-y-2">
@@ -631,11 +671,11 @@ function LocalImportDialog({
                   <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-border/50 p-3 sm:flex-row sm:items-center">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{item.file.name}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{item.model.name} · {item.model.type} · {item.model.version}</p>
+                      {item.model && <p className="mt-1 text-xs text-muted-foreground">{item.model.name} · {item.model.type} · {item.model.version}</p>}
                       {item.error && <p className="mt-1 text-xs text-destructive">{item.error}</p>}
                     </div>
                     <Badge variant="outline" className={GetImportStatusClass(item.status)}>{GetImportStatusText(item.status)}</Badge>
-                    {!importing && item.status === 'pending' && (
+                    {!importing && !inspecting && item.status === 'pending' && (
                       <Button type="button" variant="ghost" size="icon" onClick={() => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
                         <X className="size-4" />
                         <span className="sr-only">移除模型包</span>
@@ -648,8 +688,8 @@ function LocalImportDialog({
             {items.length > 0 && <Progress value={Math.round(completedCount / items.length * 100)} className="h-2" />}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={Close} disabled={importing}>关闭</Button>
-            <Button type="button" onClick={() => void ProcessQueue(0)} disabled={items.length === 0 || importing}>
+            <Button type="button" variant="outline" onClick={Close} disabled={importing || inspecting}>关闭</Button>
+            <Button type="button" onClick={() => void ProcessQueue(0)} disabled={items.length === 0 || importing || inspecting}>
               {importing && <Loader2 className="mr-1.5 size-4 animate-spin" />}
               开始导入
             </Button>
@@ -743,27 +783,18 @@ function LocalExportDialog({ models, open, onClose }: { models: IDeviceModel[]; 
     setExporting(true);
     setProgress(15);
     try {
-      await new Promise((resolve) => window.setTimeout(resolve, 320));
-      setProgress(70);
-      const manifest = selectedModels.map((model) => ({
-        name: model.name,
-        type: model.type,
-        version: model.version,
-        applicableScenarios: model.applicableScenarios || [],
-        sourceFile: model.sourceFile || null,
-        exportedAt: new Date().toISOString(),
-      }));
-      const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+      const blob = await CreateDeviceModelZipPackage(selectedModels);
+      setProgress(80);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = selectedModels.length === 1 ? `${selectedModels[0].name}-模型清单.json` : '设备模型清单.json';
+      link.download = selectedModels.length === 1 ? `${selectedModels[0].name}-设备模型.zip` : '设备模型包.zip';
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
       setProgress(100);
-      toast.success('设备模型清单已导出');
+      toast.success('设备模型 ZIP 包已导出');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '导出设备模型失败');
     } finally {
@@ -779,7 +810,7 @@ function LocalExportDialog({ models, open, onClose }: { models: IDeviceModel[]; 
             <Download className="size-5 text-primary" />
             本地导出设备模型
           </DialogTitle>
-          <DialogDescription>原型模式将导出所选模型的 JSON 清单，不会读取或打包动态库文件。</DialogDescription>
+          <DialogDescription>每个模型目录均包含 JSON 配置、SO 文件和可选 PNG 图标。</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
@@ -861,11 +892,11 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
     }
     const next = BuildMockModel(createFile, draft);
     if (models.some((model) => GetModelKey(model) === GetModelKey(next))) {
-      setCreateConflict({ model: next, icon: draft.icon });
+      setCreateConflict({ model: next, icon: draft.icon, driver: { fileName: createFile.name, blob: createFile } });
       return;
     }
     try {
-      await SaveModelIconChange(next.id, null, next.version, draft.icon);
+      await SaveModelAssetsChange(next.id, null, next.version, draft.icon, { fileName: createFile.name, blob: createFile });
       setModels((current) => [next, ...current]);
       setCreateFile(null);
       toast.success(`模型“${next.name}”已创建`);
@@ -887,7 +918,7 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
       return;
     }
     try {
-      await SaveModelIconChange(next.id, editModel.version, next.version, icon);
+      await SaveModelAssetsChange(next.id, editModel.version, next.version, icon, null);
       setModels((current) => current.map((model) => model.id === next.id ? next : model));
       setDetailModel((current) => current?.id === next.id ? next : current);
       setEditModel(null);
@@ -908,7 +939,7 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
       return;
     }
     try {
-      await RemoveDeviceModelIcons(deleteModel.id);
+      await Promise.all([RemoveDeviceModelIcons(deleteModel.id), RemoveDeviceModelDrivers(deleteModel.id)]);
     } catch {
       toast.error('模型已删除，但清理关联图标失败');
     }
@@ -923,8 +954,8 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
     }
     try {
       const matchingModels = models.filter((model) => GetModelKey(model) === GetModelKey(createConflict.model));
-      await SaveModelIconChange(createConflict.model.id, null, createConflict.model.version, createConflict.icon);
-      await Promise.all(matchingModels.map((model) => RemoveDeviceModelIcons(model.id)));
+      await Promise.all(matchingModels.flatMap((model) => [RemoveDeviceModelIcons(model.id), RemoveDeviceModelDrivers(model.id)]));
+      await SaveModelAssetsChange(createConflict.model.id, null, createConflict.model.version, createConflict.icon, createConflict.driver);
       setModels((current) => [createConflict.model, ...current.filter((model) => GetModelKey(model) !== GetModelKey(createConflict.model))]);
       setCreateConflict(null);
       setCreateFile(null);
