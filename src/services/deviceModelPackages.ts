@@ -40,9 +40,10 @@ interface DeviceModelSoFileDescription {
     vendor: string;
     deviceModel: string;
     typeIdentifier: string;
-    protocolDescription: string;
     dataPointCount: number;
     dataPoints: IDeviceModel['dataPoints'];
+    statusDataPoints: IDeviceModel['statusDataPoints'];
+    controlDataPoints: IDeviceModel['controlDataPoints'];
   };
 }
 
@@ -102,7 +103,8 @@ async function GetSha256(blob: Blob): Promise<string> {
 }
 
 function CreatePlaceholderDriver(model: IDeviceModel): DeviceModelDriverAsset {
-  const fileName = ToSoFileName(model.sourceFile || `${ToSafePathSegment(model.id)}.so`, `${ToSafePathSegment(model.id)}.so`);
+  const sourceFile = model.sourceFile?.replace(/\.md$/i, '.so');
+  const fileName = ToSoFileName(sourceFile || `${ToSafePathSegment(model.id)}.so`, `${ToSafePathSegment(model.id)}.so`);
   return {
     fileName,
     blob: new Blob([
@@ -144,7 +146,16 @@ function ToDeviceModel(value: unknown, sourceFile: string): IDeviceModel {
   if (!id || !name || !type || !version) {
     throw new Error('模型包中的模型标识、名称、类型或版本缺失');
   }
-  const dataPoints = Array.isArray(value.dataPoints) ? value.dataPoints as IDeviceModel['dataPoints'] : [];
+  const storedDataPoints = Array.isArray(value.dataPoints) ? value.dataPoints as IDeviceModel['dataPoints'] : [];
+  const storedStatusDataPoints = Array.isArray(value.statusDataPoints)
+    ? value.statusDataPoints as IDeviceModel['statusDataPoints']
+    : storedDataPoints.filter((dataPoint) => dataPoint.access === 'readonly');
+  const storedControlDataPoints = Array.isArray(value.controlDataPoints)
+    ? value.controlDataPoints as IDeviceModel['controlDataPoints']
+    : storedDataPoints.filter((dataPoint) => dataPoint.access === 'readwrite');
+  const dataPoints = storedDataPoints.length > 0
+    ? storedDataPoints
+    : [...(storedStatusDataPoints || []), ...(storedControlDataPoints || [])];
   const tags = Array.isArray(value.tags) ? value.tags.filter((tag): tag is string => typeof tag === 'string') : [];
   const interfaces = Array.isArray(value.interfaces) ? value.interfaces as IDeviceModel['interfaces'] : [];
   return {
@@ -156,9 +167,10 @@ function ToDeviceModel(value: unknown, sourceFile: string): IDeviceModel {
     vendor: ToString(value.vendor),
     deviceModel: ToString(value.deviceModel),
     typeIdentifier: ToString(value.typeIdentifier),
-    protocolDescription: ToString(value.protocolDescription),
     sourceFile,
     dataPoints,
+    statusDataPoints: storedStatusDataPoints,
+    controlDataPoints: storedControlDataPoints,
     dataPointCount: typeof value.dataPointCount === 'number' ? value.dataPointCount : dataPoints.length,
     createdAt: ToString(value.createdAt, new Date().toISOString()),
     status: value.status === 'synced' ? 'synced' : 'unsynced',
@@ -194,13 +206,20 @@ function ValidateSoDescription(value: unknown, model: IDeviceModel): void {
     ['vendor', model.vendor || ''],
     ['deviceModel', model.deviceModel || ''],
     ['typeIdentifier', model.typeIdentifier || ''],
-    ['protocolDescription', model.protocolDescription || ''],
   ];
   if (expectedFields.some(([key, expected]) => ToString(value[key]) !== expected)) {
     throw new Error('模型 JSON 中的 SO 文件描述与模型配置不一致');
   }
   if (value.dataPointCount !== model.dataPointCount || !IsSameJsonValue(value.dataPoints, model.dataPoints)) {
     throw new Error('模型 JSON 中的 SO 数据点描述与模型配置不一致');
+  }
+  if (Array.isArray(value.statusDataPoints)
+    && !IsSameJsonValue(value.statusDataPoints, model.statusDataPoints || [])) {
+    throw new Error('模型 JSON 中的 SO 状态模型描述与模型配置不一致');
+  }
+  if (Array.isArray(value.controlDataPoints)
+    && !IsSameJsonValue(value.controlDataPoints, model.controlDataPoints || [])) {
+    throw new Error('模型 JSON 中的 SO 控制模型描述与模型配置不一致');
   }
 }
 
@@ -242,9 +261,10 @@ async function CreatePackageConfig(
         vendor: model.vendor || '',
         deviceModel: model.deviceModel || '',
         typeIdentifier: model.typeIdentifier || '',
-        protocolDescription: model.protocolDescription || '',
         dataPointCount: model.dataPointCount,
         dataPoints: model.dataPoints,
+        statusDataPoints: model.statusDataPoints || [],
+        controlDataPoints: model.controlDataPoints || [],
       },
     },
     icon: icon ? { path: 'assets/model-icon.png', mimeType: 'image/png', width: 400, height: 400 } : null,

@@ -47,9 +47,10 @@ export interface IDeviceModel {
   vendor?: string
   deviceModel?: string
   typeIdentifier?: string
-  protocolDescription?: string
   sourceFile?: string
   dataPoints: IDataPoint[]
+  statusDataPoints?: IDataPoint[]
+  controlDataPoints?: IDataPoint[]
   dataPointCount: number
   createdAt: string
   status: 'synced' | 'unsynced'
@@ -58,149 +59,169 @@ export interface IDeviceModel {
   interfaces?: IDeviceModelInterfaceConfig[]
 }
 
+interface BuiltinDeviceModelConfig {
+  id: string
+  name: string
+  type: string
+  vendor: string
+  deviceModel: string
+  description: string
+  sourceFile: string
+  interfaces: IDeviceModelInterfaceConfig[]
+  statusDataPoints: IDataPoint[]
+  controlDataPoints: IDataPoint[]
+}
+
+function CreateBuiltinDeviceModel(config: BuiltinDeviceModelConfig): IDeviceModel {
+  const dataPoints = [...config.statusDataPoints, ...config.controlDataPoints]
+  return {
+    id: config.id,
+    name: config.name,
+    type: config.type,
+    version: 'v1.0.0',
+    description: config.description,
+    vendor: config.vendor,
+    deviceModel: config.deviceModel,
+    typeIdentifier: `DSDK:${config.type}/${config.vendor}/${config.deviceModel}`,
+    sourceFile: config.sourceFile,
+    dataPoints,
+    statusDataPoints: config.statusDataPoints,
+    controlDataPoints: config.controlDataPoints,
+    dataPointCount: dataPoints.length,
+    createdAt: '2026-08-07',
+    status: 'synced',
+    tags: [],
+    interfaces: config.interfaces,
+  }
+}
+
+const COVI_STATUS_DATA_POINTS: IDataPoint[] = [
+  { id: 'covi-status-coValue', name: '一氧化碳浓度', identifier: 'coValue', dataType: 'int', access: 'readonly', unit: 'ppm', range: '≥ 0', description: '设备采集的一氧化碳浓度' },
+  { id: 'covi-status-viValue', name: '能见度衰减系数', identifier: 'viValue', dataType: 'int', access: 'readonly', unit: '1/km', range: '≥ 0', description: '设备采集的能见度衰减系数' },
+]
+
+const OUTSIDE_BRIGHTNESS_STATUS_DATA_POINTS: IDataPoint[] = [
+  { id: 'outSideBrightness-status-brightness', name: '洞外亮度', identifier: 'brightness', dataType: 'float', access: 'readonly', unit: 'cd/m2', range: '0 ~ 6500', description: '4-20 mA 输入换算后的洞外亮度' },
+  { id: 'outSideBrightness-status-fault', name: '设备故障', identifier: 'fault', dataType: 'bool', access: 'readonly', unit: '', range: 'false/true', description: '亮度计故障反馈状态' },
+]
+
+const ROLL_DOOR_STATUS_DATA_POINTS: IDataPoint[] = [
+  { id: 'rollDoor-status-status', name: '门体位置', identifier: 'status', dataType: 'enum', access: 'readonly', unit: '', range: 'up/mid/down', description: '卷帘门当前限位状态' },
+  { id: 'rollDoor-status-fault', name: '设备故障', identifier: 'fault', dataType: 'bool', access: 'readonly', unit: '', range: 'false/true', description: '卷帘门故障反馈状态' },
+]
+
+const ROLL_DOOR_CONTROL_DATA_POINTS: IDataPoint[] = [
+  { id: 'rollDoor-control-status', name: '控制命令', identifier: 'status', dataType: 'enum', access: 'readwrite', unit: '', range: 'open/close/stop', description: '卷帘门动作控制命令' },
+]
+
+const TWO_LANE_INDICATOR_STATUS_DATA_POINTS: IDataPoint[] = [
+  { id: 'twoLaneIndicator-status-status', name: '车道指示状态', identifier: 'status', dataType: 'enum', access: 'readonly', unit: '', range: 'frontGreenBackRed/frontRedBackGreen/frontRedBackRed/frontOffBackOff', description: '车道指示器正反面当前反馈状态' },
+]
+
+const TWO_LANE_INDICATOR_CONTROL_DATA_POINTS: IDataPoint[] = [
+  { id: 'twoLaneIndicator-control-status', name: '车道指示状态', identifier: 'status', dataType: 'enum', access: 'readwrite', unit: '', range: 'frontGreenBackRed/frontRedBackGreen/frontRedBackRed/frontOffBackOff', description: '控制车道指示器正反面显示状态' },
+]
+
+const THREE_LANE_INDICATOR_STATUS_DATA_POINTS: IDataPoint[] = [
+  { id: 'threeLaneIndicator-status-status', name: '车道指示状态', identifier: 'status', dataType: 'enum', access: 'readonly', unit: '', range: 'frontGreenBackRed/frontRedBackGreen/frontRedBackRed/frontOffBackOff/leftArrow', description: '车道指示器正反面当前反馈状态' },
+]
+
+const THREE_LANE_INDICATOR_CONTROL_DATA_POINTS: IDataPoint[] = [
+  { id: 'threeLaneIndicator-control-status', name: '车道指示状态', identifier: 'status', dataType: 'enum', access: 'readwrite', unit: '', range: 'frontGreenBackRed/frontRedBackGreen/frontRedBackRed/frontOffBackOff/leftArrow', description: '控制车道指示器正反面显示状态' },
+]
+
 export const MOCK_DEVICE_MODELS: IDeviceModel[] = [
-  {
-    id: 'dm-1',
-    name: '温湿度传感器',
-    type: '传感器',
-    version: 'v1.0',
-    description: '工业级温湿度传感器设备模型，支持 Modbus RTU 协议，适用于环境监测场景。',
-    dataPoints: [
-      { id: 'dp-1-1', name: '温度', identifier: 'temperature', dataType: 'float', access: 'readonly', unit: '℃', range: '-40 ~ 85', description: '环境温度值' },
-      { id: 'dp-1-2', name: '湿度', identifier: 'humidity', dataType: 'float', access: 'readonly', unit: '%RH', range: '0 ~ 100', description: '环境相对湿度' },
-      { id: 'dp-1-3', name: '露点温度', identifier: 'dew_point', dataType: 'float', access: 'readonly', unit: '℃', range: '-60 ~ 60', description: '计算得出的露点温度' },
-      { id: 'dp-1-4', name: '设备地址', identifier: 'device_addr', dataType: 'int', access: 'readwrite', unit: '', range: '1 ~ 247', description: 'Modbus 从站地址' },
-      { id: 'dp-1-5', name: '波特率', identifier: 'baud_rate', dataType: 'enum', access: 'readwrite', unit: '', range: '9600/19200/38400/115200', description: '串口通信波特率' },
-      { id: 'dp-1-6', name: '采样周期', identifier: 'sample_interval', dataType: 'int', access: 'readwrite', unit: 'ms', range: '100 ~ 60000', description: '传感器采样间隔' },
-      { id: 'dp-1-7', name: '温度偏移', identifier: 'temp_offset', dataType: 'float', access: 'readwrite', unit: '℃', range: '-10 ~ 10', description: '温度校准偏移量' },
-      { id: 'dp-1-8', name: '设备状态', identifier: 'device_status', dataType: 'int', access: 'readonly', unit: '', range: '0 ~ 3', description: '0=正常 1=告警 2=故障 3=离线' },
+  CreateBuiltinDeviceModel({
+    id: 'dsdk-covi-shangHaiXunFei-UKCODEL-COVI',
+    name: '能见度仪',
+    type: 'covi',
+    vendor: 'shangHaiXunFei',
+    deviceModel: 'UKCODEL_COVI',
+    description: '用于隧道能见度监测；采用 RS485 Modbus RTU 通信，部署前确认设备地址和采集参数。',
+    sourceFile: 'covi_shangHaiXunFei_UKCODEL_COVI.md',
+    interfaces: [{ name: 'COVI RS485 通信接口', identifier: 'coviRS485', type: 'RS485', defaultConfig: [-1, -1, 9600, 8, 1, 'N'], description: '数组依次表示槽位号、通道号、波特率、数据位、停止位和校验位，槽位号范围 1-6' }],
+    statusDataPoints: COVI_STATUS_DATA_POINTS,
+    controlDataPoints: [],
+  }),
+  CreateBuiltinDeviceModel({
+    id: 'dsdk-outSideBrightness-shangHaiXunFei-UKCODEL-LU100-AI',
+    name: '亮度计',
+    type: 'outSideBrightness',
+    vendor: 'shangHaiXunFei',
+    deviceModel: 'UKCODEL_LU100_AI',
+    description: '用于隧道洞外亮度监测；亮度输入量程为 4-20 mA，部署前确认现场接线。',
+    sourceFile: 'outSideBrightness_shangHaiXunFei_UKCODEL_LU100_AI.md',
+    interfaces: [
+      { name: '洞外亮度电流输入', identifier: 'outSideBrightnessCi', type: 'CI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和电流输入通道号，槽位号范围 1-6，通道号范围 1-8' },
+      { name: '亮度计故障反馈', identifier: 'luxFaultDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号，槽位号范围 1-6，通道号范围 1-16' },
     ],
-    dataPointCount: 8,
-    createdAt: '2025-03-15',
-    status: 'synced',
-    tags: ['温湿度', '传感器', 'Modbus'],
-    interfaces: [{ name: '温湿度 RS485 通信接口', identifier: 'temperatureRs485', type: 'RS485', defaultConfig: [-1, -1, 9600, 8, 1, 'N'], description: '数组依次表示槽位号、通道号、波特率、数据位、停止位和校验位' }],
-  },
-  {
-    id: 'dm-2',
-    name: '压力变送器',
-    type: '传感器',
-    version: 'v1.2',
-    description: '高精度压力变送器模型，支持 4-20mA 模拟量输入，适用于管道压力监测。',
-    dataPoints: [
-      { id: 'dp-2-1', name: '压力值', identifier: 'pressure', dataType: 'float', access: 'readonly', unit: 'MPa', range: '0 ~ 2.5', description: '当前压力测量值' },
-      { id: 'dp-2-2', name: '量程上限', identifier: 'range_max', dataType: 'float', access: 'readwrite', unit: 'MPa', range: '0.1 ~ 10', description: '传感器量程上限' },
-      { id: 'dp-2-3', name: '量程下限', identifier: 'range_min', dataType: 'float', access: 'readwrite', unit: 'MPa', range: '0 ~ 5', description: '传感器量程下限' },
-      { id: 'dp-2-4', name: '阻尼系数', identifier: 'damping', dataType: 'float', access: 'readwrite', unit: 's', range: '0 ~ 60', description: '输出信号阻尼时间' },
-      { id: 'dp-2-5', name: '设备状态', identifier: 'status', dataType: 'int', access: 'readonly', unit: '', range: '0 ~ 3', description: '设备运行状态' },
+    statusDataPoints: OUTSIDE_BRIGHTNESS_STATUS_DATA_POINTS,
+    controlDataPoints: [],
+  }),
+  CreateBuiltinDeviceModel({
+    id: 'dsdk-rollDoor-hangZhouXinXin-XX-SV-001',
+    name: '卷帘门',
+    type: 'rollDoor',
+    vendor: 'hangZhouXinXin',
+    deviceModel: 'XX-SV-001',
+    description: '用于隧道卷帘门状态监测和控制；控制输出为约 2 秒脉冲，部署前确认现场接线。',
+    sourceFile: 'rollDoor_hangZhouXinXin_XX-SV-001.md',
+    interfaces: [
+      { name: '开门控制', identifier: 'openRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+      { name: '停止控制', identifier: 'stopRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+      { name: '关门控制', identifier: 'closeRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+      { name: '上限位反馈', identifier: 'upLimitDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+      { name: '下限位反馈', identifier: 'downLimitDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+      { name: '故障反馈', identifier: 'faultDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
     ],
-    dataPointCount: 5,
-    createdAt: '2025-04-02',
-    status: 'synced',
-    tags: ['压力', '变送器', 'AI'],
-    interfaces: [{ name: '压力模拟量输入', identifier: 'pressureVi', type: 'VI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和电压输入通道号' }],
-  },
-  {
-    id: 'dm-3',
-    name: '电力仪表',
-    type: '仪表',
-    version: 'v2.0',
-    description: '多功能电力仪表模型，支持三相电力参数采集，适用于配电监控。',
-    dataPoints: [
-      { id: 'dp-3-1', name: 'A相电压', identifier: 'voltage_a', dataType: 'float', access: 'readonly', unit: 'V', range: '0 ~ 500', description: 'A相电压有效值' },
-      { id: 'dp-3-2', name: 'B相电压', identifier: 'voltage_b', dataType: 'float', access: 'readonly', unit: 'V', range: '0 ~ 500', description: 'B相电压有效值' },
-      { id: 'dp-3-3', name: 'C相电压', identifier: 'voltage_c', dataType: 'float', access: 'readonly', unit: 'V', range: '0 ~ 500', description: 'C相电压有效值' },
-      { id: 'dp-3-4', name: 'A相电流', identifier: 'current_a', dataType: 'float', access: 'readonly', unit: 'A', range: '0 ~ 100', description: 'A相电流有效值' },
-      { id: 'dp-3-5', name: 'B相电流', identifier: 'current_b', dataType: 'float', access: 'readonly', unit: 'A', range: '0 ~ 100', description: 'B相电流有效值' },
-      { id: 'dp-3-6', name: 'C相电流', identifier: 'current_c', dataType: 'float', access: 'readonly', unit: 'A', range: '0 ~ 100', description: 'C相电流有效值' },
-      { id: 'dp-3-7', name: '有功功率', identifier: 'active_power', dataType: 'float', access: 'readonly', unit: 'kW', range: '0 ~ 9999', description: '三相总有功功率' },
-      { id: 'dp-3-8', name: '功率因数', identifier: 'power_factor', dataType: 'float', access: 'readonly', unit: '', range: '0 ~ 1', description: '功率因数' },
-      { id: 'dp-3-9', name: '频率', identifier: 'frequency', dataType: 'float', access: 'readonly', unit: 'Hz', range: '45 ~ 65', description: '电网频率' },
-      { id: 'dp-3-10', name: '正向有功电能', identifier: 'energy_forward', dataType: 'float', access: 'readonly', unit: 'kWh', range: '0 ~ 999999', description: '正向有功累计电能' },
-      { id: 'dp-3-11', name: 'CT变比', identifier: 'ct_ratio', dataType: 'int', access: 'readwrite', unit: '', range: '1 ~ 5000', description: '电流互感器变比' },
-      { id: 'dp-3-12', name: 'PT变比', identifier: 'pt_ratio', dataType: 'int', access: 'readwrite', unit: '', range: '1 ~ 5000', description: '电压互感器变比' },
+    statusDataPoints: ROLL_DOOR_STATUS_DATA_POINTS,
+    controlDataPoints: ROLL_DOOR_CONTROL_DATA_POINTS,
+  }),
+  CreateBuiltinDeviceModel({
+    id: 'dsdk-threeLaneIndicator-shangHaiSanSi-SS-C0720-3',
+    name: '车道指示器',
+    type: 'threeLaneIndicator',
+    vendor: 'shangHaiSanSi',
+    deviceModel: 'SS-C0720_3',
+    description: '用于隧道车道通行状态指示；提供正反面红绿箭头灯控制与反馈，部署前确认设备地址和现场接线。',
+    sourceFile: 'threeLaneIndicator_shangHaiSanSi_SS-C0720_3.md',
+    interfaces: [
+      { name: '正面绿灯控制', identifier: 'frontGreenCtrlRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号，槽位号范围 1-6，通道号范围 1-16' },
+      { name: '正面红灯控制', identifier: 'frontRedCtrlRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号，槽位号范围 1-6，通道号范围 1-16' },
+      { name: '反面绿灯控制', identifier: 'backGreenCtrlRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号，槽位号范围 1-6，通道号范围 1-16' },
+      { name: '反面红灯控制', identifier: 'backRedCtrlRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号，槽位号范围 1-6，通道号范围 1-16' },
+      { name: '正面绿灯反馈', identifier: 'frontGreenCtrlDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号，槽位号范围 1-6，通道号范围 1-16' },
+      { name: '正面红灯反馈', identifier: 'frontRedCtrlDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号，槽位号范围 1-6，通道号范围 1-16' },
+      { name: '反面绿灯反馈', identifier: 'backGreenCtrlDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号，槽位号范围 1-6，通道号范围 1-16' },
+      { name: '反面红灯反馈', identifier: 'backRedCtrlDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号，槽位号范围 1-6，通道号范围 1-16' },
+      { name: '左箭头控制', identifier: 'leftArrorwDo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号，槽位号范围 1-6，通道号范围 1-16' },
+      { name: '左箭头反馈', identifier: 'leftArrorwDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号，槽位号范围 1-6，通道号范围 1-16' },
     ],
-    dataPointCount: 12,
-    createdAt: '2025-05-10',
-    status: 'unsynced',
-    tags: ['电力', '仪表', '三相'],
-    interfaces: [{ name: '电力仪表 RS485 通信接口', identifier: 'powerMeterRs485', type: 'RS485', defaultConfig: [-1, -1, 9600, 8, 1, 'N'], description: '数组依次表示槽位号、通道号、波特率、数据位、停止位和校验位' }],
-  },
-  {
-    id: 'dm-4',
-    name: '变频器',
-    type: '驱动器',
-    version: 'v1.1',
-    description: '通用变频器设备模型，支持 Modbus 通信，适用于电机调速控制。',
-    dataPoints: [
-      { id: 'dp-4-1', name: '运行频率', identifier: 'run_freq', dataType: 'float', access: 'readwrite', unit: 'Hz', range: '0 ~ 50', description: '当前运行频率' },
-      { id: 'dp-4-2', name: '设定频率', identifier: 'set_freq', dataType: 'float', access: 'readwrite', unit: 'Hz', range: '0 ~ 50', description: '目标设定频率' },
-      { id: 'dp-4-3', name: '输出电流', identifier: 'output_current', dataType: 'float', access: 'readonly', unit: 'A', range: '0 ~ 100', description: '变频器输出电流' },
-      { id: 'dp-4-4', name: '输出电压', identifier: 'output_voltage', dataType: 'float', access: 'readonly', unit: 'V', range: '0 ~ 380', description: '变频器输出电压' },
-      { id: 'dp-4-5', name: '电机转速', identifier: 'motor_speed', dataType: 'int', access: 'readonly', unit: 'rpm', range: '0 ~ 3000', description: '电机实际转速' },
-      { id: 'dp-4-6', name: '运行状态', identifier: 'run_status', dataType: 'int', access: 'readonly', unit: '', range: '0 ~ 5', description: '0=停止 1=正转 2=反转 3=故障 4=待机' },
-      { id: 'dp-4-7', name: '启停控制', identifier: 'start_stop', dataType: 'bool', access: 'readwrite', unit: '', range: '0/1', description: '0=停止 1=启动' },
-      { id: 'dp-4-8', name: '加速时间', identifier: 'accel_time', dataType: 'float', access: 'readwrite', unit: 's', range: '0.1 ~ 3600', description: '从0到最大频率的加速时间' },
-      { id: 'dp-4-9', name: '减速时间', identifier: 'decel_time', dataType: 'float', access: 'readwrite', unit: 's', range: '0.1 ~ 3600', description: '从最大频率到0的减速时间' },
-      { id: 'dp-4-10', name: '故障代码', identifier: 'fault_code', dataType: 'int', access: 'readonly', unit: '', range: '0 ~ 99', description: '当前故障代码，0=无故障' },
-      { id: 'dp-4-11', name: '母线电压', identifier: 'dc_bus_voltage', dataType: 'float', access: 'readonly', unit: 'V', range: '0 ~ 800', description: '直流母线电压' },
-      { id: 'dp-4-12', name: '散热器温度', identifier: 'heatsink_temp', dataType: 'float', access: 'readonly', unit: '℃', range: '0 ~ 120', description: '散热器温度' },
-      { id: 'dp-4-13', name: 'V/F曲线选择', identifier: 'vf_curve', dataType: 'enum', access: 'readwrite', unit: '', range: '线性/平方/自定义', description: '电压频率曲线类型' },
-      { id: 'dp-4-14', name: '载波频率', identifier: 'carrier_freq', dataType: 'float', access: 'readwrite', unit: 'kHz', range: '1 ~ 15', description: 'PWM载波频率' },
-      { id: 'dp-4-15', name: '累计运行时间', identifier: 'total_run_time', dataType: 'int', access: 'readonly', unit: 'h', range: '0 ~ 99999', description: '累计运行小时数' },
+    statusDataPoints: THREE_LANE_INDICATOR_STATUS_DATA_POINTS,
+    controlDataPoints: THREE_LANE_INDICATOR_CONTROL_DATA_POINTS,
+  }),
+  CreateBuiltinDeviceModel({
+    id: 'dsdk-twoLaneIndicator-shangHaiSanSi-SS-C0720-2',
+    name: '车道指示器',
+    type: 'twoLaneIndicator',
+    vendor: 'shangHaiSanSi',
+    deviceModel: 'SS-C0720_2',
+    description: '用于隧道车道通行状态指示；提供正反面红绿灯控制与反馈，部署前确认设备地址和现场接线。',
+    sourceFile: 'twoLaneIndicator_shangHaiSanSi_SS-C0720_2.md',
+    interfaces: [
+      { name: '正面绿灯控制', identifier: 'frontGreenCtrlRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+      { name: '正面红灯控制', identifier: 'frontRedCtrlRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+      { name: '反面绿灯控制', identifier: 'backGreenCtrlRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+      { name: '反面红灯控制', identifier: 'backRedCtrlRo', type: 'DO', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+      { name: '正面绿灯反馈', identifier: 'frontGreenCtrlDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+      { name: '正面红灯反馈', identifier: 'frontRedCtrlDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+      { name: '反面绿灯反馈', identifier: 'backGreenCtrlDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
+      { name: '反面红灯反馈', identifier: 'backRedCtrlDi', type: 'DI', defaultConfig: [-1, -1], description: '数组依次表示槽位号和通道号' },
     ],
-    dataPointCount: 15,
-    createdAt: '2025-06-01',
-    status: 'synced',
-    tags: ['变频器', '电机', '驱动器'],
-    interfaces: [{ name: '变频器 RS485 通信接口', identifier: 'inverterRs485', type: 'RS485', defaultConfig: [-1, -1, 9600, 8, 1, 'N'], description: '数组依次表示槽位号、通道号、波特率、数据位、停止位和校验位' }],
-  },
-  {
-    id: 'dm-5',
-    name: '智能电表',
-    type: '仪表',
-    version: 'v1.0',
-    description: '单相智能电表模型，支持 DL/T645 协议，适用于居民和商业用电计量。',
-    dataPoints: [
-      { id: 'dp-5-1', name: '电压', identifier: 'voltage', dataType: 'float', access: 'readonly', unit: 'V', range: '0 ~ 300', description: '电压有效值' },
-      { id: 'dp-5-2', name: '电流', identifier: 'current', dataType: 'float', access: 'readonly', unit: 'A', range: '0 ~ 100', description: '电流有效值' },
-      { id: 'dp-5-3', name: '有功功率', identifier: 'power', dataType: 'float', access: 'readonly', unit: 'W', range: '0 ~ 99999', description: '瞬时有功功率' },
-      { id: 'dp-5-4', name: '总电能', identifier: 'total_energy', dataType: 'float', access: 'readonly', unit: 'kWh', range: '0 ~ 999999', description: '累计用电量' },
-      { id: 'dp-5-5', name: '尖电量', identifier: 'peak_energy', dataType: 'float', access: 'readonly', unit: 'kWh', range: '0 ~ 999999', description: '尖峰时段用电量' },
-      { id: 'dp-5-6', name: '峰电量', identifier: 'high_energy', dataType: 'float', access: 'readonly', unit: 'kWh', range: '0 ~ 999999', description: '高峰时段用电量' },
-      { id: 'dp-5-7', name: '平电量', identifier: 'flat_energy', dataType: 'float', access: 'readonly', unit: 'kWh', range: '0 ~ 999999', description: '平时段用电量' },
-      { id: 'dp-5-8', name: '谷电量', identifier: 'valley_energy', dataType: 'float', access: 'readonly', unit: 'kWh', range: '0 ~ 999999', description: '低谷时段用电量' },
-      { id: 'dp-5-9', name: '表号', identifier: 'meter_id', dataType: 'string', access: 'readwrite', unit: '', range: '12位', description: '电表出厂编号' },
-      { id: 'dp-5-10', name: '费率数', identifier: 'tariff_count', dataType: 'int', access: 'readwrite', unit: '', range: '1 ~ 4', description: '费率时段数量' },
-    ],
-    dataPointCount: 10,
-    createdAt: '2025-06-15',
-    status: 'synced',
-    tags: ['电表', '计量', 'DL/T645'],
-    interfaces: [{ name: '智能电表 RS485 通信接口', identifier: 'meterRs485', type: 'RS485', defaultConfig: [-1, -1, 9600, 8, 1, 'N'], description: '数组依次表示槽位号、通道号、波特率、数据位、停止位和校验位' }],
-  },
-  {
-    id: 'dm-6',
-    name: '门禁控制器',
-    type: '控制器',
-    version: 'v1.3',
-    description: '网络型门禁控制器模型，支持 TCP/IP 通信，适用于出入口管理。',
-    dataPoints: [
-      { id: 'dp-6-1', name: '门状态', identifier: 'door_status', dataType: 'int', access: 'readonly', unit: '', range: '0 ~ 3', description: '0=关闭 1=打开 2=异常 3=常开' },
-      { id: 'dp-6-2', name: '锁状态', identifier: 'lock_status', dataType: 'bool', access: 'readonly', unit: '', range: '0/1', description: '0=解锁 1=上锁' },
-      { id: 'dp-6-3', name: '远程开锁', identifier: 'remote_unlock', dataType: 'bool', access: 'readwrite', unit: '', range: '0/1', description: '写1触发远程开锁' },
-      { id: 'dp-6-4', name: '刷卡记录', identifier: 'card_record', dataType: 'string', access: 'readonly', unit: '', range: '', description: '最近一次刷卡卡号' },
-      { id: 'dp-6-5', name: '报警状态', identifier: 'alarm_status', dataType: 'int', access: 'readonly', unit: '', range: '0 ~ 7', description: '位掩码：1=非法闯入 2=门超时 4=胁迫报警' },
-      { id: 'dp-6-6', name: '开门延时', identifier: 'open_delay', dataType: 'int', access: 'readwrite', unit: 's', range: '1 ~ 60', description: '开锁后自动上锁延时' },
-      { id: 'dp-6-7', name: 'IP地址', identifier: 'ip_address', dataType: 'string', access: 'readwrite', unit: '', range: '', description: '控制器IP地址' },
-    ],
-    dataPointCount: 7,
-    createdAt: '2025-07-01',
-    status: 'unsynced',
-    tags: ['门禁', '控制器', '安防'],
-    interfaces: [{ name: '门禁控制器 TCP 接口', identifier: 'accessTcp', type: 'TCP_CLIENT', defaultConfig: ['', 502], description: '数组依次表示远端 IPv4 地址和端口号' }],
-  },
-];
+    statusDataPoints: TWO_LANE_INDICATOR_STATUS_DATA_POINTS,
+    controlDataPoints: TWO_LANE_INDICATOR_CONTROL_DATA_POINTS,
+  }),
+]
 
 export const MOCK_CLOUD_DEVICE_MODELS: IDeviceModel[] = [
   {
@@ -250,4 +271,19 @@ export const MOCK_CLOUD_DEVICE_MODELS: IDeviceModel[] = [
     status: 'synced',
     tags: ['AI', '智能体', '云端'],
   },
-];
+]
+
+export function GetStatusDataPoints(model: IDeviceModel | undefined): IDataPoint[] {
+  return model?.statusDataPoints || model?.dataPoints.filter((dataPoint) => dataPoint.access === 'readonly') || []
+}
+
+export function GetControlDataPoints(model: IDeviceModel | undefined): IDataPoint[] {
+  return model?.controlDataPoints || model?.dataPoints.filter((dataPoint) => dataPoint.access === 'readwrite') || []
+}
+
+export function GetAllDataPoints(model: IDeviceModel | undefined): IDataPoint[] {
+  if (!model) {
+    return []
+  }
+  return [...GetStatusDataPoints(model), ...GetControlDataPoints(model)]
+}

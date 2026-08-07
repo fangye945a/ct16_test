@@ -50,7 +50,6 @@ export interface IDeviceModelDriverMetadata {
   vendor: string;
   deviceModel: string;
   typeIdentifier: string;
-  protocolDescription: string;
   interfaces: IDeviceModelInterfaceConfig[];
   loaded: boolean;
   message: string;
@@ -117,7 +116,6 @@ function BuildUnloadedMetadata(message: string): IDeviceModelDriverMetadata {
     vendor: '',
     deviceModel: '',
     typeIdentifier: '',
-    protocolDescription: '',
     interfaces: [],
     loaded: false,
     message,
@@ -149,7 +147,6 @@ export async function InspectDeviceModelDriver(file: File): Promise<IDeviceModel
     vendor: triad.vendor,
     deviceModel: triad.deviceModel,
     typeIdentifier,
-    protocolDescription: `已从 DSDK .so 驱动中读取设备三元组：${typeIdentifier}`,
     interfaces: DRIVER_INTERFACE_CONFIGS[triad.deviceType] || [],
     loaded: true,
     message: '已自动读取驱动中的设备类型、厂商和设备型号，创建时不可修改。',

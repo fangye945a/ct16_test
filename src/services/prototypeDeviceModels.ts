@@ -36,6 +36,16 @@ function ReadArray<T>(key: string, fallback: T[]): T[] {
   }
 }
 
+function RemoveLegacyProtocolDescription(model: IDeviceModel): IDeviceModel {
+  const modelValue = model as IDeviceModel & { protocolDescription?: unknown };
+  if (!Object.prototype.hasOwnProperty.call(modelValue, 'protocolDescription')) {
+    return model;
+  }
+  const normalizedModel = { ...modelValue };
+  delete normalizedModel.protocolDescription;
+  return normalizedModel;
+}
+
 /**
  * 获取设备模型原型清单。
  *
@@ -43,14 +53,22 @@ function ReadArray<T>(key: string, fallback: T[]): T[] {
  */
 export function GetPrototypeDeviceModels(): IDeviceModel[] {
   const models = ReadArray(DEVICE_MODELS_STORAGE_KEY, MOCK_DEVICE_MODELS);
+  const hasLegacyBuiltinModels = models.some((model) => /^dm-\d+$/.test(model.id));
+  if (hasLegacyBuiltinModels) {
+    return [
+      ...CloneValue(MOCK_DEVICE_MODELS),
+      ...models.filter((model) => !/^dm-\d+$/.test(model.id)).map(RemoveLegacyProtocolDescription),
+    ];
+  }
   const builtinModels = new Map(MOCK_DEVICE_MODELS.map((model) => [model.id, model]));
   return models.map((model) => {
-    const builtinModel = builtinModels.get(model.id);
-    if (model.interfaces || !builtinModel?.interfaces) {
-      return model;
+    const normalizedModel = RemoveLegacyProtocolDescription(model);
+    const builtinModel = builtinModels.get(normalizedModel.id);
+    if (normalizedModel.interfaces || !builtinModel?.interfaces) {
+      return normalizedModel;
     }
     return {
-      ...model,
+      ...normalizedModel,
       interfaces: CloneValue(builtinModel.interfaces),
     };
   });

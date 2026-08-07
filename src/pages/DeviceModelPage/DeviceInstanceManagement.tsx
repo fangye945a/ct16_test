@@ -70,7 +70,13 @@ import {
   Wifi,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { type IDataPoint, type IDeviceModel, type IDeviceModelInterfaceConfig } from '@/data/device-models';
+import {
+  GetControlDataPoints,
+  GetStatusDataPoints,
+  type IDataPoint,
+  type IDeviceModel,
+  type IDeviceModelInterfaceConfig,
+} from '@/data/device-models';
 import {
   BuildDeviceStatusError,
   ClassifyDsdkDeviceStatus,
@@ -659,6 +665,103 @@ function DeviceStatusErrorDialog({
   );
 }
 
+function GetDataPointOptions(dataPoint: IDataPoint): string[] {
+  if (dataPoint.dataType === 'bool') {
+    return ['false', 'true'];
+  }
+  if (dataPoint.dataType === 'enum') {
+    return dataPoint.range.split('/').map((item) => item.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function GetDeviceDataPointValue(
+  device: IDeviceInstance,
+  dataPoint: IDataPoint,
+  options: string[],
+): string {
+  const value = device.dataPointValues[dataPoint.identifier];
+  if (value && (options.length === 0 || options.includes(value))) {
+    return value;
+  }
+  return GetDefaultDataPointValue(dataPoint);
+}
+
+function DataPointTable({
+  device,
+  dataPoints,
+  readOnly,
+  draftValues,
+  onDraftValueChange,
+  onRead,
+  onWrite,
+}: {
+  device: IDeviceInstance
+  dataPoints: IDataPoint[]
+  readOnly: boolean
+  draftValues: Record<string, string>
+  onDraftValueChange: (identifier: string, value: string) => void
+  onRead: (deviceId: string, identifier: string) => void
+  onWrite: (deviceId: string, dataPoint: IDataPoint, value: string) => void
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-border/40">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>数据点</TableHead>
+            <TableHead>当前值</TableHead>
+            <TableHead>类型 / 范围</TableHead>
+            <TableHead className="text-right">操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {dataPoints.map((dataPoint) => {
+            const options = GetDataPointOptions(dataPoint);
+            const storedValue = GetDeviceDataPointValue(device, dataPoint, options);
+            const draftValue = draftValues[dataPoint.identifier];
+            const value = draftValue && (options.length === 0 || options.includes(draftValue)) ? draftValue : storedValue;
+            return (
+              <TableRow key={dataPoint.id}>
+                <TableCell>
+                  <div className="font-medium">{dataPoint.name}</div>
+                  <div className="font-mono text-xs text-muted-foreground">{dataPoint.identifier}</div>
+                </TableCell>
+                <TableCell className="min-w-[180px]">
+                  {readOnly ? (
+                    <span className="font-medium">{storedValue || '暂无值'}</span>
+                  ) : options.length > 0 ? (
+                    <Select value={value} onValueChange={(nextValue) => onDraftValueChange(dataPoint.identifier, nextValue)}>
+                      <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                      <SelectContent>{options.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent>
+                    </Select>
+                  ) : (
+                    <Input value={value} onChange={(event) => onDraftValueChange(dataPoint.identifier, event.target.value)} className="h-8" placeholder="输入值" />
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="text-[10px]">{dataPoint.dataType}</Badge>
+                  <div className="mt-1 text-xs text-muted-foreground">{dataPoint.range || '无范围限制'}</div>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-1">
+                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => onRead(device.id, dataPoint.identifier)}>
+                      <RefreshCw className="mr-1 size-3.5" />读取
+                    </Button>
+                    {!readOnly && dataPoint.access === 'readwrite' && (
+                      <Button size="sm" className="h-8 text-xs" onClick={() => onWrite(device.id, dataPoint, value)}>写入</Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 function DeviceDetailDialog({
   device,
   model,
@@ -688,7 +791,9 @@ function DeviceDetailDialog({
 
   if (!device) return null;
 
-  const dataPoints = model?.dataPoints || [];
+  const statusDataPoints = GetStatusDataPoints(model);
+  const controlDataPoints = GetControlDataPoints(model);
+  const dataPointCount = statusDataPoints.length + controlDataPoints.length;
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -745,74 +850,53 @@ function DeviceDetailDialog({
           </div>
         </div>
 
-        {!model || dataPoints.length === 0 ? (
+        {!model || dataPointCount === 0 ? (
           <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/5 p-4 text-sm text-warning">
             <CircleAlert className="mt-0.5 size-4 shrink-0" />
             该设备模型暂未定义数据点，当前只能查看设备基础信息。
           </div>
         ) : (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold">数据点控制</div>
-                <div className="text-xs text-muted-foreground">读取数据或修改模型允许写入的数据点。</div>
+          <div className="space-y-5">
+            {statusDataPoints.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-semibold">状态模型</div>
+                    <div className="text-xs text-muted-foreground">对应 DSDK 状态模型，仅支持读取设备状态。</div>
+                  </div>
+                  <Badge variant="outline">{statusDataPoints.length} 个状态点</Badge>
+                </div>
+                <DataPointTable
+                  device={device}
+                  dataPoints={statusDataPoints}
+                  readOnly
+                  draftValues={draftValues}
+                  onDraftValueChange={(identifier, value) => setDraftValues((current) => ({ ...current, [identifier]: value }))}
+                  onRead={onRead}
+                  onWrite={onWrite}
+                />
               </div>
-              <Badge variant="outline">{dataPoints.length} 个数据点</Badge>
-            </div>
-            <div className="overflow-hidden rounded-xl border border-border/40">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>数据点</TableHead>
-                    <TableHead>当前值</TableHead>
-                    <TableHead>类型 / 范围</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dataPoints.map((dataPoint) => {
-                    const value = draftValues[dataPoint.identifier] ?? device.dataPointValues[dataPoint.identifier] ?? GetDefaultDataPointValue(dataPoint);
-                    const options = dataPoint.dataType === 'bool'
-                      ? ['false', 'true']
-                      : dataPoint.dataType === 'enum'
-                        ? dataPoint.range.split('/').map((item) => item.trim()).filter(Boolean)
-                        : [];
-                    return (
-                      <TableRow key={dataPoint.id}>
-                        <TableCell>
-                          <div className="font-medium">{dataPoint.name}</div>
-                          <div className="font-mono text-xs text-muted-foreground">{dataPoint.identifier}</div>
-                        </TableCell>
-                        <TableCell className="min-w-[180px]">
-                          {options.length > 0 ? (
-                            <Select value={value} onValueChange={(nextValue) => setDraftValues((current) => ({ ...current, [dataPoint.identifier]: nextValue }))}>
-                              <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                              <SelectContent>{options.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent>
-                            </Select>
-                          ) : (
-                            <Input value={value} onChange={(event) => setDraftValues((current) => ({ ...current, [dataPoint.identifier]: event.target.value }))} className="h-8" placeholder="输入值" />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-[10px]">{dataPoint.dataType}</Badge>
-                          <div className="mt-1 text-xs text-muted-foreground">{dataPoint.range || '无范围限制'}</div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => onRead(device.id, dataPoint.identifier)}>
-                              <RefreshCw className="mr-1 size-3.5" />读取
-                            </Button>
-                            {dataPoint.access === 'readwrite' && (
-                              <Button size="sm" className="h-8 text-xs" onClick={() => onWrite(device.id, dataPoint, value)}>写入</Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+            )}
+            {controlDataPoints.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-semibold">控制模型</div>
+                    <div className="text-xs text-muted-foreground">对应 DSDK 控制模型，按模型定义写入控制命令。</div>
+                  </div>
+                  <Badge variant="outline">{controlDataPoints.length} 个控制点</Badge>
+                </div>
+                <DataPointTable
+                  device={device}
+                  dataPoints={controlDataPoints}
+                  readOnly={false}
+                  draftValues={draftValues}
+                  onDraftValueChange={(identifier, value) => setDraftValues((current) => ({ ...current, [identifier]: value }))}
+                  onRead={onRead}
+                  onWrite={onWrite}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -966,9 +1050,9 @@ export default function DeviceInstanceManagement({ models }: { models: IDeviceMo
     setDeleteDevice(null);
   };
 
-  const handleRead = (deviceId: string) => {
+  const handleRead = (deviceId: string, identifier: string) => {
     UpdateDevices(devices.map((device) => device.id === deviceId ? { ...device, lastUpdate: '刚刚' } : device));
-    toast.success('数据点读取成功');
+    toast.success(`数据点「${identifier}」读取成功`);
   };
 
   const handleDiagnose = (deviceId: string, code: number) => {

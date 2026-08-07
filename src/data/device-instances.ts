@@ -13,7 +13,12 @@
  * limitations under the License.
  */
 
-import { MOCK_DEVICE_MODELS, type IDataPoint, type IDeviceModel } from '@/data/device-models';
+import {
+  GetAllDataPoints,
+  MOCK_DEVICE_MODELS,
+  type IDataPoint,
+  type IDeviceModel,
+} from '@/data/device-models';
 import { MOCK_DEVICE_NODES, type IDeviceNode } from '@/data/topology';
 import type { IDeviceStatusError } from '@/services/dsdkErrorCodes';
 
@@ -50,13 +55,13 @@ export interface IDeviceInstance {
 }
 
 function GetModelByDeviceType(deviceType: string): IDeviceModel | undefined {
-  return MOCK_DEVICE_MODELS.find((model) => model.name === deviceType);
+  return MOCK_DEVICE_MODELS.find((model) => model.name === deviceType || model.type === deviceType);
 }
 
 function BuildLegacyDeviceInstance(node: IDeviceNode): IDeviceInstance {
   const model = GetModelByDeviceType(node.deviceType);
   const valueParts = node.value.split('/').map((value) => value.trim());
-  const dataPointValues = model?.dataPoints.reduce<Record<string, string>>((values, dataPoint, index) => {
+  const dataPointValues = model && GetAllDataPoints(model).reduce<Record<string, string>>((values, dataPoint, index) => {
     if (valueParts[index]) {
       values[dataPoint.identifier] = valueParts[index];
     }
@@ -100,7 +105,18 @@ export function GetDeviceInstances(): IDeviceInstance[] {
 
   try {
     const parsed = JSON.parse(stored) as unknown;
-    return Array.isArray(parsed) ? parsed as IDeviceInstance[] : INITIAL_DEVICE_INSTANCES;
+    if (!Array.isArray(parsed)) {
+      return INITIAL_DEVICE_INSTANCES;
+    }
+    const devices = parsed as IDeviceInstance[];
+    const hasLegacyBuiltinDevices = devices.some((device) => /^dm-\d+$/.test(device.modelId));
+    if (hasLegacyBuiltinDevices) {
+      return [
+        ...INITIAL_DEVICE_INSTANCES,
+        ...devices.filter((device) => !/^dm-\d+$/.test(device.modelId)),
+      ];
+    }
+    return devices;
   } catch {
     return INITIAL_DEVICE_INSTANCES;
   }
@@ -125,17 +141,19 @@ export function GetDefaultDataPointValue(dataPoint: IDataPoint): string {
 }
 
 export function BuildDataPointValues(model: IDeviceModel): Record<string, string> {
-  return model.dataPoints.reduce<Record<string, string>>((values, dataPoint) => {
-    values[dataPoint.identifier] = GetDefaultDataPointValue(dataPoint);
+  return GetAllDataPoints(model).reduce<Record<string, string>>((values, dataPoint) => {
+    if (!Object.prototype.hasOwnProperty.call(values, dataPoint.identifier)) {
+      values[dataPoint.identifier] = GetDefaultDataPointValue(dataPoint);
+    }
     return values;
   }, {});
 }
 
 export function GetDeviceCategory(modelType: string): DeviceCategory {
-  if (modelType === '传感器') {
+  if (modelType === '传感器' || modelType === 'covi' || modelType === 'outSideBrightness') {
     return 'sensor';
   }
-  if (modelType === '驱动器') {
+  if (modelType === '驱动器' || modelType === 'rollDoor' || modelType === 'twoLaneIndicator' || modelType === 'threeLaneIndicator') {
     return 'actuator';
   }
   return 'other';

@@ -123,7 +123,6 @@ interface ModelDraft {
   vendor: string;
   deviceModel: string;
   typeIdentifier: string;
-  protocolDescription: string;
   dataPoints: IDataPoint[];
   tags: string[];
   applicableScenarios: IDeviceModelScenario[];
@@ -183,9 +182,10 @@ function BuildMockModel(file: File, draft: ModelDraft): IDeviceModel {
     vendor: draft.vendor.trim() || '本地模型',
     deviceModel: draft.deviceModel.trim() || modelName,
     typeIdentifier: draft.typeIdentifier.trim() || type,
-    protocolDescription: draft.protocolDescription.trim() || '未从协议驱动中读取到详细描述。',
     sourceFile: file.name,
     dataPoints: draft.dataPoints,
+    statusDataPoints: draft.dataPoints.filter((dataPoint) => dataPoint.access === 'readonly'),
+    controlDataPoints: draft.dataPoints.filter((dataPoint) => dataPoint.access === 'readwrite'),
     dataPointCount: draft.dataPoints.length,
     createdAt: new Date().toISOString(),
     status: 'unsynced',
@@ -266,10 +266,6 @@ function ModelDetailDialog({ model, onClose }: { model: IDeviceModel | null; onC
             <div>
               <p className="text-xs text-muted-foreground">模型描述</p>
               <p className="mt-1 whitespace-pre-wrap">{model.description || '暂无描述'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">协议描述</p>
-              <p className="mt-1 whitespace-pre-wrap">{model.protocolDescription || '暂无协议描述'}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">标签</p>
@@ -482,7 +478,6 @@ function ModelFormDialog({
   const [vendor, setVendor] = useState('');
   const [deviceModel, setDeviceModel] = useState('');
   const [typeIdentifier, setTypeIdentifier] = useState('');
-  const [protocolDescription, setProtocolDescription] = useState('');
   const [dataPoints, setDataPoints] = useState<IDataPoint[]>([]);
   const [tags, setTags] = useState('');
   const [applicableScenarios, setApplicableScenarios] = useState<IDeviceModelScenario[]>([]);
@@ -501,7 +496,6 @@ function ModelFormDialog({
     setVendor(model?.vendor || driverMetadata?.vendor || '');
     setDeviceModel(model?.deviceModel || driverMetadata?.deviceModel || '');
     setTypeIdentifier(model?.typeIdentifier || driverMetadata?.typeIdentifier || '');
-    setProtocolDescription(model?.protocolDescription || driverMetadata?.protocolDescription || '');
     setDataPoints(model?.dataPoints || []);
     setTags(model?.tags.join(', ') || '');
     setApplicableScenarios(model?.applicableScenarios || []);
@@ -534,7 +528,6 @@ function ModelFormDialog({
         vendor: vendor.trim(),
         deviceModel: deviceModel.trim(),
         typeIdentifier: typeIdentifier.trim(),
-        protocolDescription: protocolDescription.trim(),
         dataPoints,
         tags: SplitTags(tags),
         applicableScenarios,
@@ -661,12 +654,6 @@ function ModelFormDialog({
             <Label>模型描述</Label>
             <Textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="输入模型用途说明" className="min-h-20" />
           </div>
-          {isEditing && (
-            <div className="space-y-2">
-              <Label>协议描述</Label>
-              <Textarea value={protocolDescription} onChange={(event) => setProtocolDescription(event.target.value)} placeholder="输入协议描述" className="min-h-20" />
-            </div>
-          )}
           <ScenarioSelectionField value={applicableScenarios} onChange={setApplicableScenarios} />
           <div className="space-y-2">
             <Label>标签</Label>
@@ -1072,7 +1059,6 @@ export default function DeviceModelCatalog({ models, setModels }: DeviceModelCat
           vendor: '',
           deviceModel: '',
           typeIdentifier: '',
-          protocolDescription: '',
           interfaces: [],
           loaded: false,
           message: error instanceof Error ? error.message : '读取 .so 驱动中的模型信息失败，请重新选择有效驱动。',
