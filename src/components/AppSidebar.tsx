@@ -19,6 +19,8 @@ import {
   Bot,
   Settings,
   Boxes,
+  CloudCog,
+  ListChecks,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -26,7 +28,9 @@ const NAV_ITEMS = [
   { path: '/topology', label: '系统拓扑', icon: Share2 },
   { path: '/files-logs', label: '文件日志', icon: FolderTree },
   { path: '/ota', label: 'OTA 升级', icon: Upload },
-  { path: '/device-models', label: '设备管理', icon: Boxes },
+  { path: '/device-models', label: '南向设备接入', icon: Boxes },
+  { path: '/northbound-platforms', label: '北向平台对接', icon: CloudCog },
+  { path: '/batch-operations', label: '批量运维管理', icon: ListChecks },
   { path: '/nodered', label: '可视化编程', icon: Workflow },
   { path: '/picoclaw', label: '智能体配置', icon: Bot },
   { path: '/settings', label: '系统设置', icon: Settings },

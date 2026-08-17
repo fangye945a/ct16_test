@@ -12,6 +12,8 @@ import NodeRedPage from "@/pages/NodeRedPage/NodeRedPage";
 import PicoClawPage from "@/pages/PicoClawPage/PicoClawPage";
 import SettingsPage from "@/pages/SettingsPage/SettingsPage";
 import DeviceModelPage from "@/pages/DeviceModelPage/DeviceModelPage";
+import NorthboundPlatformPage from "@/pages/NorthboundPlatformPage/NorthboundPlatformPage";
+import BatchOperationsPage from "@/pages/BatchOperationsPage/BatchOperationsPage";
 
 export default function App() {
   return (
@@ -26,6 +28,8 @@ export default function App() {
         <Route path="nodered" element={<NodeRedPage />} />
         <Route path="picoclaw" element={<PicoClawPage />} />
         <Route path="device-models" element={<DeviceModelPage />} />
+        <Route path="northbound-platforms" element={<NorthboundPlatformPage />} />
+        <Route path="batch-operations" element={<BatchOperationsPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />

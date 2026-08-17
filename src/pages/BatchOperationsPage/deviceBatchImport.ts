@@ -30,42 +30,35 @@ export const DEVICE_IMPORT_HEADERS = [
   '备注',
 ] as const;
 
-const REQUIRED_DEVICE_IMPORT_HEADERS = [
-  '控制器SN号',
-  '设备名称',
-  '设备模型',
-  '设备SN号',
-  '通信接口',
-  '通信地址',
-] as const;
+const REQUIRED_DEVICE_IMPORT_HEADERS = ['控制器SN号', '设备名称', '设备模型', '设备SN号', '通信接口', '通信地址'] as const;
 
 export const SUPPORTED_INTERFACE_TYPES = ['RS485', 'ETH', 'DI', 'DO', 'AI', 'AO'] as const;
 
 export type DeviceImportRoute = 'local' | 'softbus' | 'unknown';
 
 export interface IDeviceBatchImportRow {
-  rowNumber: number
-  controllerSerialNumber: string
-  name: string
-  modelId: string
-  modelName: string
-  serialNumber: string
-  interfaceType: string
-  interfaceLabel: string
-  address: string
-  location: string
-  description: string
-  route: DeviceImportRoute
-  targetController: IDeviceController | null
-  errors: string[]
+  rowNumber: number;
+  controllerSerialNumber: string;
+  name: string;
+  modelId: string;
+  modelName: string;
+  serialNumber: string;
+  interfaceType: string;
+  interfaceLabel: string;
+  address: string;
+  location: string;
+  description: string;
+  route: DeviceImportRoute;
+  targetController: IDeviceController | null;
+  errors: string[];
 }
 
 export type DeviceBatchImportResultStatus = 'success' | 'failed';
 
 export interface IDeviceBatchImportResult {
-  row: IDeviceBatchImportRow
-  status: DeviceBatchImportResultStatus
-  message: string
+  row: IDeviceBatchImportRow;
+  status: DeviceBatchImportResultStatus;
+  message: string;
 }
 
 function NormalizeCellValue(value: unknown): string {
@@ -155,7 +148,7 @@ function BuildImportRow(
   }
   if (!interfaceType) {
     errors.push('通信接口不能为空');
-  } else if (!SUPPORTED_INTERFACE_TYPES.includes(interfaceType as typeof SUPPORTED_INTERFACE_TYPES[number])) {
+  } else if (!SUPPORTED_INTERFACE_TYPES.includes(interfaceType as (typeof SUPPORTED_INTERFACE_TYPES)[number])) {
     errors.push(`通信接口「${interfaceType}」不受支持`);
   }
   if (!address) {
@@ -216,16 +209,7 @@ export async function ParseDeviceImportWorkbook(
     if (!cells.some((cell) => NormalizeCellValue(cell))) {
       return result;
     }
-    const row = BuildImportRow(
-      cells,
-      headers,
-      index + 2,
-      models,
-      devices,
-      controllers,
-      localControllerSerialNumber,
-      fileSerialNumbers,
-    );
+    const row = BuildImportRow(cells, headers, index + 2, models, devices, controllers, localControllerSerialNumber, fileSerialNumbers);
     if (row.serialNumber) {
       fileSerialNumbers.add(row.serialNumber);
     }
@@ -238,9 +222,7 @@ export async function ParseDeviceImportWorkbook(
  * 下载设备实例批量添加模板。
  */
 export function DownloadDeviceImportTemplate(): void {
-  const worksheet = XLSX.utils.aoa_to_sheet([
-    [...DEVICE_IMPORT_HEADERS],
-  ]);
+  const worksheet = XLSX.utils.aoa_to_sheet([[...DEVICE_IMPORT_HEADERS]]);
   const instructionWorksheet = XLSX.utils.aoa_to_sheet([
     ['填写项', '说明'],
     ['控制器SN号', '填写目标控制器SN号；本机SN号为 SN-2024X8A1。'],
