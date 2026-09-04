@@ -62,3 +62,6 @@ pnpm-lock.yaml
 
 # Agent files
 .agent/
+
+# Git worktrees
+.worktrees/
