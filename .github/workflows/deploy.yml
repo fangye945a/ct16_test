@@ -28,6 +28,8 @@ jobs:
         run: npm install
       
       - name: Build
+        env:
+          CT16_WEB_BASE: /${{ github.event.repository.name }}/
         run: npx vite build
       
       - name: Upload artifact

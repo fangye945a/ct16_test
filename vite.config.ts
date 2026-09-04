@@ -16,8 +16,12 @@ const zhosClawTarget =
 const ct16ApiTarget =
   process.env.CT16_API_PROXY_TARGET || `http://localhost:8080`
 
+const githubRepositoryName = process.env.GITHUB_REPOSITORY?.split('/').pop()
+const webBase = process.env.CT16_WEB_BASE ||
+  (process.env.GITHUB_ACTIONS === 'true' && githubRepositoryName ? `/${githubRepositoryName}/` : '/')
+
 export default defineConfig({
-  base: process.env.CT16_WEB_BASE || '/',
+  base: webBase,
   server: {
     proxy: {
       // node-green 可视化流程编辑器（可视化编程 · 流式编程）
