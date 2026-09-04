@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
@@ -7,10 +7,10 @@ import {
   Cable,
 } from 'lucide-react';
 import NetworkTopology from './NetworkTopology';
-import DeviceTopology from './DeviceTopology';
 import ModuleTopology from './ModuleTopology';
+import DeviceTopology from './DeviceTopology';
 import NodeDetailDrawer from './NodeDetailDrawer';
-import type { INetworkDevice, IDeviceNode } from '@/data/topology';
+import type { IDeviceNode, INetworkDevice } from '@/data/topology';
 
 type TabKey = 'network' | 'device' | 'module';
 
@@ -23,25 +23,45 @@ const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ className?
 export default function TopologyPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('module');
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedNetworkNode, setSelectedNetworkNode] = useState<INetworkDevice | null>(null);
-  const [selectedDeviceNode, setSelectedDeviceNode] = useState<IDeviceNode | null>(null);
+  const [selectedNode, setSelectedNode] = useState<INetworkDevice | IDeviceNode | null>(null);
+  const [selectedDeviceUpdater, setSelectedDeviceUpdater] = useState<
+    ((node: IDeviceNode) => void) | null
+  >(null);
+  const [drawerTab, setDrawerTab] = useState<'network' | 'device'>('network');
 
   const handleNetworkNodeSelect = (node: INetworkDevice) => {
-    setSelectedNetworkNode(node);
-    setSelectedDeviceNode(null);
+    setSelectedNode(node);
+    setDrawerTab('network');
     setDrawerOpen(true);
   };
 
-  const handleDeviceNodeSelect = (node: IDeviceNode) => {
-    setSelectedDeviceNode(node);
-    setSelectedNetworkNode(null);
+  const handleDeviceNodeSelect = (
+    node: IDeviceNode,
+    updateNode: (node: IDeviceNode) => void,
+  ) => {
+    setSelectedNode(node);
+    setSelectedDeviceUpdater(() => updateNode);
+    setDrawerTab('device');
     setDrawerOpen(true);
   };
+
+  const handleDeviceNodeUpdate = useCallback((node: IDeviceNode) => {
+    setSelectedNode(node);
+    selectedDeviceUpdater?.(node);
+  }, [selectedDeviceUpdater]);
 
   return (
     <div className="space-y-6">
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          const nextTab = value as TabKey;
+          setActiveTab(nextTab);
+          if (nextTab !== 'device') setDrawerOpen(false);
+        }}
+        className="w-full"
+      >
         <TabsList className="w-full max-w-md bg-[#F3F4F6] rounded-2xl p-1 h-auto">
           {TABS.map((tab) => {
             const Icon = tab.icon;
@@ -50,7 +70,7 @@ export default function TopologyPage() {
               <TabsTrigger
                 key={tab.key}
                 value={tab.key}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black uppercase tracking-wider transition-all ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
                   isActive
                     ? 'bg-white text-[#111827] shadow-sm'
                     : 'text-[#9CA3AF] hover:text-[#111827]'
@@ -82,7 +102,10 @@ export default function TopologyPage() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
-              <DeviceTopology onNodeSelect={handleDeviceNodeSelect} />
+              <DeviceTopology
+                active={activeTab === 'device'}
+                onNodeSelect={handleDeviceNodeSelect}
+              />
             </motion.div>
           </TabsContent>
 
@@ -103,8 +126,9 @@ export default function TopologyPage() {
       <NodeDetailDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        node={selectedNetworkNode || selectedDeviceNode}
-        tab={selectedNetworkNode ? 'network' : 'device'}
+        node={selectedNode}
+        tab={drawerTab}
+        onDeviceNodeUpdate={handleDeviceNodeUpdate}
       />
     </div>
   );

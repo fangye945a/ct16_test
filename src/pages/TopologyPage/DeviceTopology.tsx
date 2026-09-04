@@ -1,15 +1,14 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Activity, ChevronDown, ChevronRight, Cpu, Layers3, RadioTower } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronDown, ChevronRight, Cpu, Database, Loader2, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MOCK_DEVICE_MODELS } from '@/data/device-models';
-import {
-  DEVICE_INSTANCES_CHANGED_EVENT,
-  GetDeviceInstances,
-  ToDeviceNode,
-} from '@/data/device-instances';
-import type { IDeviceNode } from '@/data/topology';
+import { Button } from '@/components/ui/button';
+import { type IDeviceNode } from '@/data/topology';
+import { useDeviceTopology } from '@/hooks/useDeviceTopology';
+import { BrandLogo } from '@/components/BrandLogo';
+import { CT16_APPEARANCE_EVENT, getCt16Appearance, type Ct16Appearance } from '@/lib/appearance';
 
 type DeviceGroup = {
   deviceType: string;
@@ -21,17 +20,18 @@ type DeviceGroup = {
 
 const STATUS_STYLE = {
   normal: { dot: 'bg-[#00B894]', text: 'text-[#00B894]', border: 'border-[#00B894]/25', line: '#00B894', label: '正常' },
-  warning: { dot: 'bg-[#F97316]', text: 'text-[#F97316]', border: 'border-[#F97316]/25', line: '#F97316', label: '告警' },
+  warning: { dot: 'bg-[#F97316]', text: 'text-[#F97316]', border: 'border-[#F97316]/25', line: '#F97316', label: '异常' },
   offline: { dot: 'bg-[#9CA3AF]', text: 'text-[#9CA3AF]', border: 'border-[#9CA3AF]/25', line: '#D1D5DB', label: '离线' },
 };
 
 const MIN_CANVAS_WIDTH = 1180;
 const CANVAS_HEIGHT = 640;
 const CONTROLLER_Y = 78;
-const TYPE_Y = 274;
-const DEVICE_Y = 500;
+const TYPE_Y = 240;
+const DEVICE_Y = 448;
+const DEVICE_BRANCH_Y = 348;
 const TYPE_WIDTH = 210;
-const DEVICE_WIDTH = 188;
+const DEVICE_WIDTH = 220;
 const DEVICE_GAP = 24;
 const GROUP_GAP = 56;
 const CANVAS_PADDING = 80;
@@ -44,17 +44,20 @@ function GetGroupWidth(devices: IDeviceNode[], collapsed: boolean) {
 }
 
 function BuildDeviceGroups(devices: IDeviceNode[], collapsedTypes: Record<string, boolean>): DeviceGroup[] {
-  const order = ['温湿度传感器', '执行器', '输入设备', 'PLC控制器'];
+  const preferredOrder = ['温湿度传感器', '执行器', '输入设备', 'PLC控制器'];
   const grouped = devices.reduce<Record<string, IDeviceNode[]>>((acc, node) => {
     acc[node.deviceType] = [...(acc[node.deviceType] || []), node];
     return acc;
   }, {});
-  const deviceTypes = [...order, ...Object.keys(grouped).filter((deviceType) => !order.includes(deviceType))];
+  const order = [
+    ...preferredOrder.filter((deviceType) => grouped[deviceType]?.length),
+    ...Object.keys(grouped)
+      .filter((deviceType) => !preferredOrder.includes(deviceType))
+      .sort((left, right) => left.localeCompare(right, 'zh-CN')),
+  ];
 
   let cursor = CANVAS_PADDING;
-  return deviceTypes
-    .filter((deviceType) => grouped[deviceType]?.length)
-    .map((deviceType) => {
+  return order.map((deviceType) => {
       const groupDevices = grouped[deviceType];
       const collapsed = !!collapsedTypes[deviceType];
       const width = GetGroupWidth(groupDevices, collapsed);
@@ -83,25 +86,36 @@ function GetDeviceX(group: DeviceGroup, index: number) {
   return groupStart + DEVICE_WIDTH / 2 + index * (DEVICE_WIDTH + DEVICE_GAP);
 }
 
-function ControllerNode() {
+function ControllerNode({
+  appearance,
+  totalCount,
+  typeCount,
+}: {
+  appearance: Ct16Appearance;
+  totalCount: number;
+  typeCount: number;
+}) {
   return (
-    <Card className="w-[240px] rounded-[28px] border-2 border-[#00B894]/25 bg-white p-4 shadow-lg">
-      <div className="mb-3 flex items-center justify-between">
-        <Badge className="rounded-full border-[#00B894] bg-[#00B894] px-3 py-1 text-sm font-black text-white">
-          控制
-        </Badge>
-        <span className="flex items-center gap-1 text-sm font-black text-[#00B894]">
-          <span className="size-2 rounded-full bg-[#00B894] animate-pulse" />
-          运行中
-        </span>
-      </div>
+    <Card className="w-[280px] rounded-[28px] border-2 border-[#00B894]/25 bg-white p-4 shadow-lg">
       <div className="flex items-center gap-3">
-        <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#00B894]/10">
-          <Cpu className="size-6 text-[#00B894]" />
+        <div className={`flex size-12 shrink-0 items-center justify-center rounded-2xl ${appearance.logoType === 'custom' ? 'bg-transparent' : 'bg-[#00B894]/10'}`}>
+          <BrandLogo
+            logoType={appearance.logoType}
+            logoImage={appearance.logoImage}
+            className="size-6 text-[#00B894]"
+          />
         </div>
         <div>
-          <div className="text-sm font-black text-[#111827]">CT16 在鸿控制器</div>
-          <div className="mt-1 text-sm font-bold text-[#9CA3AF]">下游设备树根节点</div>
+          <div className="flex items-center gap-3">
+            <div className="text-sm font-black text-[#111827]">CT16 在鸿控制器</div>
+            <span className="flex items-center gap-1.5 whitespace-nowrap text-xs font-black text-[#00B894]">
+              <span className="size-2 rounded-full bg-[#00B894] animate-pulse" />
+              运行中
+            </span>
+          </div>
+          <div className="mt-1 text-xs font-bold text-[#9CA3AF]">
+            {totalCount} 台设备 {typeCount} 类设备
+          </div>
         </div>
       </div>
     </Card>
@@ -118,7 +132,7 @@ function TypeNode({
   onToggle: () => void;
 }) {
   const normalCount = group.devices.filter((device) => device.status === 'normal').length;
-  const interfaceLabels = Array.from(new Set(group.devices.map((device) => device.interfaceType))).join(' / ');
+  const model = group.devices[0];
   const ToggleIcon = collapsed ? ChevronRight : ChevronDown;
 
   return (
@@ -136,11 +150,16 @@ function TypeNode({
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex size-8 items-center justify-center rounded-xl bg-[#00B894]/10">
-              <Layers3 className="size-4 text-[#00B894]" />
+              {model?.iconUrl ? (
+                <img src={model.iconUrl} alt="模型图标" className="size-6 object-cover" />
+              ) : (
+                <Database className="size-4 text-[#00B894]" />
+              )}
             </div>
             <div>
-              <div className="max-w-[120px] truncate text-sm font-black text-[#111827]">{group.deviceType}</div>
-              <div className="text-xs font-bold text-[#9CA3AF]">{interfaceLabels}</div>
+              <div className="max-w-[140px] truncate text-sm font-black text-[#111827]">
+                {model?.modelName || group.deviceType}
+              </div>
             </div>
           </div>
           <ToggleIcon className="size-4 text-[#9CA3AF] transition-colors group-hover:text-[#00B894]" />
@@ -157,7 +176,13 @@ function TypeNode({
   );
 }
 
-function DeviceNodeCard({ node, onSelect }: { node: IDeviceNode; onSelect: (node: IDeviceNode) => void }) {
+function DeviceNodeCard({
+  node,
+  onSelect,
+}: {
+  node: IDeviceNode;
+  onSelect: (node: IDeviceNode) => void;
+}) {
   const sc = STATUS_STYLE[node.status];
 
   return (
@@ -171,21 +196,37 @@ function DeviceNodeCard({ node, onSelect }: { node: IDeviceNode; onSelect: (node
       className="group text-left"
       onClick={() => onSelect(node)}
     >
-      <Card className={`w-[188px] rounded-[20px] border bg-white p-3 shadow-sm transition-all duration-200 group-hover:border-[#00B894]/40 group-hover:shadow-md ${sc.border}`}>
+      <Card className={`w-[220px] rounded-[20px] border bg-white p-3 shadow-sm transition-all duration-200 group-hover:border-[#00B894]/40 group-hover:shadow-md ${sc.border}`}>
         <div className="mb-2 flex items-center gap-2">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[#F9FAFB]">
-            <RadioTower className={`size-4 ${sc.text}`} />
+          <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#F9FAFB]">
+            {node.iconUrl ? (
+              <img src={node.iconUrl} alt="模型图标" className="size-full object-cover" />
+            ) : (
+              <Database className={`size-4 ${sc.text}`} />
+            )}
           </div>
-          <span className={`size-2 shrink-0 rounded-full ${sc.dot} ${node.status === 'normal' ? 'animate-pulse' : ''}`} />
-          <span className={`ml-auto text-xs font-black ${sc.text}`}>{sc.label}</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-black text-[#111827]" title={node.name}>
+            {node.name}
+          </span>
+          <span className={`flex shrink-0 items-center gap-1 text-xs font-black ${sc.text}`}>
+            <span className={`size-2 rounded-full ${sc.dot} ${node.status === 'normal' ? 'animate-pulse' : ''}`} />
+            {sc.label}
+          </span>
         </div>
         <div className="truncate text-sm font-black text-[#111827]">{node.serialNumber}</div>
-        <div className="mt-2 flex items-center justify-between border-t border-[#F3F4F6] pt-2">
-          <span className="text-xs font-black text-[#9CA3AF]">{node.interfaceLabel}</span>
-          <span className={`max-w-[92px] truncate text-sm font-black tabular-nums ${sc.text}`}>
-            {node.value}
-            {node.unit && <span className="ml-0.5 text-[9px] opacity-70">{node.unit}</span>}
-          </span>
+        <div className="mt-2 space-y-1.5 border-t border-[#F3F4F6] pt-2">
+          {node.statusValues?.map((item) => (
+            <div key={item.id} className="flex items-start justify-between gap-2 text-xs">
+              <span className="min-w-0 flex-1 text-[#9CA3AF]">{item.name}</span>
+              <span className={`max-w-[100px] break-words text-right font-black tabular-nums ${sc.text}`}>
+                {item.value}
+                {item.unit && <span className="ml-0.5 text-[9px] opacity-70">{item.unit}</span>}
+              </span>
+            </div>
+          ))}
+          {!node.statusValues?.length && (
+            <div className="text-xs font-bold text-[#9CA3AF]">未定义状态点</div>
+          )}
         </div>
       </Card>
     </motion.button>
@@ -207,26 +248,43 @@ function OrthogonalConnector({ d, color = '#00B894', opacity = 0.34, dashed = fa
   );
 }
 
-export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (node: IDeviceNode) => void }) {
+export default function DeviceTopology({
+  active,
+  onNodeSelect,
+}: {
+  active: boolean;
+  onNodeSelect: (node: IDeviceNode, updateNode: (node: IDeviceNode) => void) => void;
+}) {
+  const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [collapsedTypes, setCollapsedTypes] = useState<Record<string, boolean>>({});
+  const [appearance, setAppearance] = useState(getCt16Appearance);
   const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
-  const [devices, setDevices] = useState<IDeviceNode[]>(() => GetDeviceInstances().map((device) => ToDeviceNode(device, MOCK_DEVICE_MODELS)));
+  const {
+    nodes: devices,
+    normalCount,
+    warningCount,
+    offlineCount,
+    totalCount,
+    loading,
+    error,
+    refresh,
+    updateNode,
+  } = useDeviceTopology(active);
+
   useEffect(() => {
-    const reloadDevices = () => setDevices(GetDeviceInstances().map((device) => ToDeviceNode(device, MOCK_DEVICE_MODELS)));
-    window.addEventListener(DEVICE_INSTANCES_CHANGED_EVENT, reloadDevices);
-    return () => window.removeEventListener(DEVICE_INSTANCES_CHANGED_EVENT, reloadDevices);
+    const syncAppearance = () => setAppearance(getCt16Appearance());
+    window.addEventListener(CT16_APPEARANCE_EVENT, syncAppearance);
+    return () => window.removeEventListener(CT16_APPEARANCE_EVENT, syncAppearance);
   }, []);
+
   const groups = useMemo(() => BuildDeviceGroups(devices, collapsedTypes), [devices, collapsedTypes]);
   const canvasWidth = GetCanvasWidth(groups);
   const controllerX = canvasWidth / 2;
-  const normalCount = devices.filter((device) => device.status === 'normal').length;
-  const warningCount = devices.filter((device) => device.status === 'warning').length;
-  const offlineCount = devices.filter((device) => device.status === 'offline').length;
   const visibleGroups = groups.filter((group) => !group.collapsed);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -272,25 +330,69 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (node: 
   const firstGroupX = groups[0]?.x ?? controllerX;
   const lastGroupX = groups[groups.length - 1]?.x ?? controllerX;
 
+  if (loading && devices.length === 0) {
+    return (
+      <div className="relative overflow-hidden rounded-[48px] border border-[#F3F4F6] bg-white shadow-sm">
+        <div className="flex items-center justify-center h-[640px]">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="size-8 text-[#00B894] animate-spin" />
+            <span className="text-sm font-bold text-[#9CA3AF]">正在加载系统拓扑...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && devices.length === 0) {
+    return (
+      <div className="relative overflow-hidden rounded-[48px] border border-[#F3F4F6] bg-white shadow-sm">
+        <div className="flex items-center justify-center h-[640px]">
+          <div className="flex flex-col items-center gap-3 max-w-md text-center">
+            <Cpu className="size-8 text-[#9CA3AF]" />
+            <span className="text-sm font-bold text-[#9CA3AF]">{error}</span>
+            <button
+              onClick={refresh}
+              className="px-4 py-2 rounded-2xl bg-[#00B894]/10 text-sm font-black text-[#00B894] hover:bg-[#00B894]/20 transition-all"
+            >
+              重试
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (devices.length === 0) {
+    return (
+      <div className="relative overflow-hidden rounded-[48px] border border-[#F3F4F6] bg-white shadow-sm">
+        <div className="flex items-center justify-center h-[640px]">
+          <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+            <Cpu className="size-8 text-[#9CA3AF]" />
+            <div>
+              <p className="text-sm font-bold text-[#374151]">暂未发现设备实例</p>
+              <p className="mt-1 text-xs text-[#9CA3AF]">添加设备实例后，可在这里查看设备拓扑关系。</p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              className="mt-1"
+              onClick={() => navigate('/device-models')}
+            >
+              <Plus className="mr-1 size-3.5" />
+              添加设备实例
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative overflow-hidden rounded-[48px] border border-[#F3F4F6] bg-white shadow-sm">
       <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
         <button onClick={zoomIn} className="flex size-9 items-center justify-center rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] text-sm font-black text-[#9CA3AF] transition-all hover:border-[#00B894]/30 hover:text-[#00B894]">+</button>
         <button onClick={zoomOut} className="flex size-9 items-center justify-center rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] text-sm font-black text-[#9CA3AF] transition-all hover:border-[#00B894]/30 hover:text-[#00B894]">-</button>
         <button onClick={resetView} className="rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] px-3 py-2 text-sm font-black uppercase tracking-widest text-[#9CA3AF] transition-all hover:border-[#00B894]/30 hover:text-[#00B894]">适应</button>
-      </div>
-
-      <div className="absolute left-4 top-4 z-20 flex items-center gap-3 rounded-2xl border border-[#F3F4F6] bg-white/90 px-4 py-2.5 shadow-sm backdrop-blur-sm">
-        <div className="flex items-center gap-1.5">
-          <Activity className="size-3.5 text-[#00B894]" />
-          <span className="text-sm font-black uppercase tracking-wider text-[#111827]">三层设备树</span>
-        </div>
-        <span className="h-4 w-px bg-[#F3F4F6]" />
-        <span className="text-sm font-black text-[#9CA3AF]">
-          <span className="text-[#00B894]">{devices.length}</span> 台设备
-        </span>
-        <span className="h-4 w-px bg-[#F3F4F6]" />
-        <span className="text-sm font-black text-[#9CA3AF]">{groups.length} 类设备</span>
       </div>
 
       <div
@@ -308,13 +410,13 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (node: 
           style={{ width: canvasWidth, height: CANVAS_HEIGHT, transform: `translate(calc(-50% + ${pan.x}px), ${pan.y}px) scale(${scale})`, transformOrigin: 'center top' }}
         >
           <svg className="pointer-events-none absolute inset-0 h-full w-full">
-            <OrthogonalConnector d={`M ${controllerX} 150 L ${controllerX} 206 L ${firstGroupX} 206 L ${lastGroupX} 206`} opacity={0.28} />
+            <OrthogonalConnector d={`M ${controllerX} 122 L ${controllerX} 164 L ${firstGroupX} 164 L ${lastGroupX} 164`} opacity={0.28} />
             {groups.map((group) => {
               return (
                 <g key={`type-line-${group.deviceType}`}>
                   <OrthogonalConnector d={`M ${group.x} 206 L ${group.x} ${TYPE_Y - 62}`} opacity={0.38} />
                   {!group.collapsed && (
-                    <OrthogonalConnector d={`M ${group.x} ${TYPE_Y + 64} L ${group.x} 392`} opacity={0.3} />
+                    <OrthogonalConnector d={`M ${group.x} ${TYPE_Y + 64} L ${group.x} ${DEVICE_BRANCH_Y}`} opacity={0.3} />
                   )}
                 </g>
               );
@@ -324,14 +426,14 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (node: 
               const lastDeviceX = GetDeviceX(group, group.devices.length - 1);
               return (
                 <g key={`device-lines-${group.deviceType}`}>
-                  <OrthogonalConnector d={`M ${firstDeviceX} 392 L ${lastDeviceX} 392`} opacity={0.24} />
+                  <OrthogonalConnector d={`M ${firstDeviceX} ${DEVICE_BRANCH_Y} L ${lastDeviceX} ${DEVICE_BRANCH_Y}`} opacity={0.24} />
                   {group.devices.map((device, index) => {
                     const deviceX = GetDeviceX(group, index);
                     const sc = STATUS_STYLE[device.status];
                     return (
                       <OrthogonalConnector
                         key={`device-line-${device.id}`}
-                        d={`M ${deviceX} 392 L ${deviceX} ${DEVICE_Y - 52}`}
+                        d={`M ${deviceX} ${DEVICE_BRANCH_Y} L ${deviceX} ${DEVICE_Y - 52}`}
                         color={sc.line}
                         opacity={device.status === 'offline' ? 0.24 : 0.42}
                         dashed={device.status !== 'normal'}
@@ -343,8 +445,8 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (node: 
             })}
           </svg>
 
-          <div className="absolute" style={{ left: controllerX - 120, top: CONTROLLER_Y - 68 }}>
-            <ControllerNode />
+          <div className="absolute" style={{ left: controllerX - 140, top: CONTROLLER_Y - 48 }}>
+            <ControllerNode appearance={appearance} totalCount={totalCount} typeCount={groups.length} />
           </div>
 
           {groups.map((group) => (
@@ -356,14 +458,14 @@ export default function DeviceTopology({ onNodeSelect }: { onNodeSelect: (node: 
           {visibleGroups.flatMap((group) =>
             group.devices.map((device, index) => (
               <div key={device.id} className="absolute" style={{ left: GetDeviceX(group, index) - DEVICE_WIDTH / 2, top: DEVICE_Y - 44 }}>
-                <DeviceNodeCard node={device} onSelect={onNodeSelect} />
+                <DeviceNodeCard node={device} onSelect={(node) => onNodeSelect(node, updateNode)} />
               </div>
             )),
           )}
         </div>
       </div>
 
-      <div className="absolute bottom-4 left-4 z-20 flex items-center gap-4 rounded-2xl border border-[#F3F4F6] bg-white/90 px-4 py-2.5 shadow-sm backdrop-blur-sm">
+      <div className="absolute left-4 top-4 z-20 flex items-center gap-4 rounded-2xl border border-[#F3F4F6] bg-white/90 px-4 py-2.5 shadow-sm backdrop-blur-sm">
         <div className="flex items-center gap-1.5">
           <span className="size-2 rounded-full bg-[#00B894] animate-pulse" />
           <span className="text-sm font-black uppercase text-[#9CA3AF]">正常 {normalCount}</span>

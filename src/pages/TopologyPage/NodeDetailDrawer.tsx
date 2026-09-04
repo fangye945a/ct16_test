@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,36 +17,17 @@ import {
   Tablet,
   Clock,
   Activity,
-  Wifi,
-  WifiOff,
-  Gauge,
-  Zap,
-  Thermometer,
-  Droplets,
-  Power,
-  ToggleLeft,
-  Lightbulb,
-  Radio,
-  Waves,
-  ArrowUpDown,
-  ArrowRight,
   MapPin,
   Hash,
   Cable,
   RefreshCw,
+  Database,
 } from 'lucide-react';
 import type { INetworkDevice, IDeviceNode } from '@/data/topology';
+import { readDeviceInstance } from '@/api/deviceModels';
 
 const DEVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   CT16: Cpu, CT32: Server, CT33: Server, CT21B: Monitor, HarmonyPad: Tablet,
-};
-
-const SUB_DEVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  '温度传感器': Thermometer, '湿度传感器': Droplets, '电磁流量计': Waves,
-  '压力变送器': Gauge, '液位传感器': ArrowUpDown, '按钮开关': ToggleLeft,
-  '旋钮开关': ToggleLeft, '接近开关': Radio, '接触器': Power, '指示灯': Lightbulb,
-  '电动调节阀': Zap, '风机': Power, '变频电机': Zap, '信号灯': Lightbulb,
-  'PLC控制器': Cpu, '工业显示屏': Monitor,
 };
 
 interface NodeDetailDrawerProps {
@@ -54,29 +35,130 @@ interface NodeDetailDrawerProps {
   onClose: () => void;
   node: INetworkDevice | IDeviceNode | null;
   tab: 'network' | 'device';
+  onDeviceNodeUpdate: (node: IDeviceNode) => void;
 }
 
 function isNetworkDevice(node: INetworkDevice | IDeviceNode): node is INetworkDevice {
   return 'role' in node;
 }
 
-export default function NodeDetailDrawer({ open, onClose, node, tab }: NodeDetailDrawerProps) {
+type DeviceStatusValue = NonNullable<IDeviceNode['statusValues']>[number];
+
+function formatStatusValue(value: unknown, item: DeviceStatusValue): string {
+  if (value === null || value === undefined) return '--';
+  if (item.isEnum) {
+    const matched = item.values.find((candidate) => {
+      try {
+        return JSON.stringify(JSON.parse(candidate.valueJSON)) === JSON.stringify(value);
+      } catch {
+        return candidate.valueJSON === String(value);
+      }
+    });
+    if (matched?.meaning) return matched.meaning;
+  }
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  return String(value);
+}
+
+export default function NodeDetailDrawer({
+  open,
+  onClose,
+  node,
+  tab,
+  onDeviceNodeUpdate,
+}: NodeDetailDrawerProps) {
   const navigate = useNavigate();
+  const [readError, setReadError] = useState('');
+  const deviceNodeRef = useRef<IDeviceNode | null>(null);
+
+  if (node && !isNetworkDevice(node)) {
+    deviceNodeRef.current = node;
+  }
+
+  useEffect(() => {
+    if (!node || isNetworkDevice(node)) {
+      setReadError('');
+      return;
+    }
+    setReadError(node.readError || '');
+  }, [node]);
+
+  useEffect(() => {
+    if (!open || !node || isNetworkDevice(node)) return;
+
+    let stopped = false;
+    const readStatus = async () => {
+      const current = deviceNodeRef.current;
+      if (!current) return;
+      try {
+        const response = await readDeviceInstance(current.serialNumber);
+        if (!response.success) {
+          if (!stopped) {
+            const error = response.error || `读取失败，错误码 ${response.code}`;
+            setReadError(error);
+            onDeviceNodeUpdate({ ...current, status: 'warning', readError: error });
+          }
+          return;
+        }
+        const payload = JSON.parse(response.info || '{}');
+        if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+          throw new Error('返回数据格式无效');
+        }
+        const values = current.statusValues?.map((item) => ({
+          ...item,
+          value: formatStatusValue((payload as Record<string, unknown>)[item.id], item),
+        }));
+        if (!stopped) {
+          setReadError('');
+          onDeviceNodeUpdate({
+            ...current,
+            status: 'normal',
+            readError: '',
+            value: values?.[0]?.value || '--',
+            statusValues: values,
+            lastUpdate: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
+          });
+        }
+      } catch (error) {
+        if (!stopped) {
+          const message = error instanceof Error ? error.message : '读取失败';
+          setReadError(message);
+          onDeviceNodeUpdate({ ...current, status: 'warning', readError: message });
+        }
+      }
+    };
+
+    void readStatus();
+    const timer = window.setInterval(() => void readStatus(), 1000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [open, node?.id, onDeviceNodeUpdate]);
+
   if (!node) return null;
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-[400px] sm:w-[480px] p-0">
-        <SheetHeader className="px-6 pt-6 pb-4">
-          <SheetTitle className="text-lg font-black text-[#111827]">
-            {isNetworkDevice(node) ? node.name : node.name}
-          </SheetTitle>
-          <SheetDescription className="text-xs font-bold text-[#9CA3AF]">
-            {isNetworkDevice(node) ? node.deviceType : node.deviceType}
-          </SheetDescription>
-        </SheetHeader>
+      <SheetContent
+        className="w-[400px] sm:w-[480px] p-0"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        {isNetworkDevice(node) ? (
+          <SheetHeader className="px-6 pt-6 pb-4">
+            <SheetTitle className="text-lg font-black text-[#111827]">{node.name}</SheetTitle>
+            <SheetDescription className="text-xs font-bold text-[#9CA3AF]">
+              {node.deviceType}
+            </SheetDescription>
+          </SheetHeader>
+        ) : (
+          <SheetHeader className="sr-only">
+            <SheetTitle>{node.name}</SheetTitle>
+            <SheetDescription>{node.deviceType}</SheetDescription>
+          </SheetHeader>
+        )}
 
-        <div className="px-6 pb-6 space-y-4">
+        <div className={`space-y-4 px-6 pb-6 ${isNetworkDevice(node) ? '' : 'pt-6'}`}>
           {isNetworkDevice(node) ? (
             <>
               {/* Network device detail */}
@@ -106,21 +188,11 @@ export default function NodeDetailDrawer({ open, onClose, node, tab }: NodeDetai
                     <span className="text-[#9CA3AF] font-bold">IP 地址</span>
                     <span className="font-black text-[#111827] tabular-nums">{node.ip}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#9CA3AF] font-bold">固件版本</span>
-                    <span className="font-black text-[#111827]">{node.firmware}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#9CA3AF] font-bold">运行时长</span>
-                    <span className="font-black text-[#111827]">{node.uptime}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#9CA3AF] font-bold">吞吐量</span>
-                    <span className="font-black text-[#111827]">{node.throughput}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#9CA3AF] font-bold">延迟</span>
-                    <span className="font-black text-[#111827]">{node.latency}ms</span>
+                  <div className="flex items-start gap-3 border-t border-[#F3F4F6] pt-2.5 text-sm">
+                    <span className="shrink-0 font-bold text-[#9CA3AF]">固件版本</span>
+                    <span className="min-w-0 flex-1 break-all text-right font-black leading-5 text-[#111827] tabular-nums" title={node.firmware}>
+                      {node.firmware}
+                    </span>
                   </div>
                 </div>
               </Card>
@@ -137,47 +209,59 @@ export default function NodeDetailDrawer({ open, onClose, node, tab }: NodeDetai
             </>
           ) : (
             <>
-              {/* Sub-device detail - expanded */}
-              <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#F9FAFB] border border-[#F3F4F6]">
-                {(() => {
-                  const Icon = SUB_DEVICE_ICONS[node.deviceType] || Zap;
-                  const sc = node.status === 'normal'
+              <div className="flex items-center gap-3 rounded-2xl border border-[#F3F4F6] bg-[#F9FAFB] p-4">
+                <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#00B894]/10">
+                  {node.iconUrl ? (
+                    <img src={node.iconUrl} alt="模型图标" className="size-full object-cover" />
+                  ) : (
+                    <Database className="size-7 text-[#00B894]" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-black text-[#111827]" title={node.name}>{node.name}</div>
+                  <div className="mt-1 truncate text-xs font-bold text-[#9CA3AF]" title={node.deviceType}>
+                    {node.deviceType}
+                  </div>
+                </div>
+                <Badge className={`shrink-0 text-[10px] font-black uppercase ${
+                  node.status === 'normal'
                     ? 'bg-[#00B894]/10 text-[#00B894]'
                     : node.status === 'warning'
                       ? 'bg-[#F97316]/10 text-[#F97316]'
-                      : 'bg-[#9CA3AF]/10 text-[#9CA3AF]';
-                  return (
-                    <div className={`size-14 rounded-2xl flex items-center justify-center shrink-0 ${sc}`}>
-                      <Icon className="size-7" />
-                    </div>
-                  );
-                })()}
-                <div>
-                  <Badge className={`text-[10px] font-black uppercase ${
-                    node.status === 'normal'
-                      ? 'bg-[#00B894]/10 text-[#00B894]'
-                      : node.status === 'warning'
-                        ? 'bg-[#F97316]/10 text-[#F97316]'
-                        : 'bg-[#9CA3AF]/10 text-[#9CA3AF]'
-                  }`}>
-                    {node.status === 'normal' ? '正常' : node.status === 'warning' ? '告警' : '离线'}
-                  </Badge>
-                  <div className="text-sm font-bold text-[#111827] mt-1">{node.deviceType}</div>
-                </div>
-                <Button variant="outline" size="sm" className="ml-auto shrink-0 text-xs" onClick={() => navigate('/device-models')}>
+                      : 'bg-[#9CA3AF]/10 text-[#9CA3AF]'
+                }`}>
+                  {node.status === 'normal' ? '正常' : node.status === 'warning' ? '异常' : '离线'}
+                </Badge>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => {
+                    onClose();
+                    navigate('/device-models');
+                  }}
+                >
                   管理设备
-                  <ArrowRight className="ml-1 size-3.5" />
                 </Button>
               </div>
 
               {/* 实时数据 */}
               <Card className="p-4 rounded-[24px] border border-[#F3F4F6] shadow-sm">
                 <div className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-3">实时数据</div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-black text-[#111827] tabular-nums">{node.value}</span>
-                  {node.unit && <span className="text-lg font-bold text-[#9CA3AF]">{node.unit}</span>}
+                <div className="space-y-2.5">
+                  {node.statusValues?.map((item) => (
+                    <div key={item.id} className="flex items-start justify-between gap-4 text-sm">
+                      <span className="min-w-0 flex-1 font-bold text-[#9CA3AF]">{item.name}</span>
+                      <span className="max-w-[55%] break-words text-right font-black text-[#111827] tabular-nums">
+                        {item.value}{item.unit && <span className="ml-1 text-xs text-[#9CA3AF]">{item.unit}</span>}
+                      </span>
+                    </div>
+                  ))}
+                  {!node.statusValues?.length && (
+                    <div className="text-sm font-bold text-[#9CA3AF]">暂无状态点</div>
+                  )}
                 </div>
-                <div className="flex items-center gap-1.5 mt-2 text-[10px] text-[#9CA3AF]">
+                <div className="mt-3 flex items-center gap-1.5 text-[10px] text-[#9CA3AF]">
                   <RefreshCw className="size-3" />
                   <span>更新于 {node.lastUpdate}</span>
                 </div>
@@ -195,21 +279,9 @@ export default function NodeDetailDrawer({ open, onClose, node, tab }: NodeDetai
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-[#9CA3AF] font-bold flex items-center gap-1.5">
-                      <Hash className="size-3.5" />接口编号
-                    </span>
-                    <span className="font-black text-[#111827]">{node.interfaceLabel}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#9CA3AF] font-bold flex items-center gap-1.5">
                       <Hash className="size-3.5" />SN号
                     </span>
                     <span className="font-black text-[#111827] text-xs">{node.serialNumber}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#9CA3AF] font-bold flex items-center gap-1.5">
-                      <Hash className="size-3.5" />设备地址
-                    </span>
-                    <span className="font-black text-[#111827] text-xs">{node.address}</span>
                   </div>
                 </div>
               </Card>
@@ -247,9 +319,14 @@ export default function NodeDetailDrawer({ open, onClose, node, tab }: NodeDetai
                     node.status === 'normal' ? 'text-[#00B894]' :
                     node.status === 'warning' ? 'text-[#F97316]' : 'text-[#9CA3AF]'
                   }`}>
-                    {node.status === 'normal' ? '运行正常' : node.status === 'warning' ? '告警' : '离线'}
+                    {node.status === 'normal' ? '运行正常' : node.status === 'warning' ? '运行异常' : '离线'}
                   </span>
                 </div>
+                {readError && (
+                  <div className="mt-2 break-words text-xs font-bold leading-5 text-[#F97316]">
+                    异常原因：{readError}
+                  </div>
+                )}
                 <div className="flex items-center gap-1.5 mt-2 text-[10px] text-[#9CA3AF]">
                   <Clock className="size-3" />
                   <span>最后更新：{node.lastUpdate}</span>

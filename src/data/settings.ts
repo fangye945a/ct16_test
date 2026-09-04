@@ -1,7 +1,7 @@
 // EXPORTS: ITimeSettings, ISecuritySettings, IWirelessSlotSettings, INetworkInterfaceSettings, MOCK_TIME_SETTINGS, MOCK_SECURITY_SETTINGS, MOCK_WIRELESS_SLOT_SETTINGS, MOCK_NETWORK_INTERFACE_SETTINGS
 
 export type WirelessSlotOneType = 'none' | '4g' | 'wifi'
-export type WirelessSlotTwoType = 'none' | 'ble' | 'slb'
+export type WirelessSlotTwoType = 'none' | 'ble' | 'sle'
 
 export interface IWirelessSlotSettings {
   slot1: WirelessSlotOneType
@@ -10,7 +10,7 @@ export interface IWirelessSlotSettings {
 
 export type NetworkWorkMode = 'independent' | 'bridge'
 export type NetworkAddressMode = 'dhcp' | 'static'
-export type NetworkInterfaceId = 'eth1' | 'eth2' | 'bridge' | '4g' | 'wifi'
+export type NetworkInterfaceId = 'eth0' | 'eth1' | 'bridge' | '4g' | 'wifi'
 
 export interface INetworkInterfaceConfig {
   id: NetworkInterfaceId
@@ -20,8 +20,11 @@ export interface INetworkInterfaceConfig {
   ipAddress: string
   subnetMask: string
   gateway: string
+  runtimeIpAddress?: string
+  runtimeGateway?: string
   dnsPrimary: string
   dnsSecondary: string
+  effectiveDns?: string[]
   metric: string
   defaultRoute: boolean
   ssid?: string
@@ -39,14 +42,12 @@ export interface INetworkInterfaceSettings {
 export interface ITimeSettings {
   timezone: string
   ntpServer: string
-  manualDateTime: string
+  ntpEnabled: boolean
 }
 
 export interface ISecuritySettings {
-  adminPassword: string
-  allowedIps: string[]
   sshEnabled: boolean
-  httpsOnly: boolean
+  hdcEnabled: boolean
 }
 
 export const MOCK_WIRELESS_SLOT_SETTINGS: IWirelessSlotSettings = {
@@ -57,9 +58,9 @@ export const MOCK_WIRELESS_SLOT_SETTINGS: IWirelessSlotSettings = {
 export const MOCK_NETWORK_INTERFACE_SETTINGS: INetworkInterfaceSettings = {
   ethernetMode: 'independent',
   interfaces: {
-    eth1: {
-      id: 'eth1',
-      name: 'ETH1',
+    eth0: {
+      id: 'eth0',
+      name: 'ETH0',
       enabled: true,
       addressMode: 'static',
       ipAddress: '192.168.250.25',
@@ -70,9 +71,9 @@ export const MOCK_NETWORK_INTERFACE_SETTINGS: INetworkInterfaceSettings = {
       metric: '10',
       defaultRoute: true,
     },
-    eth2: {
-      id: 'eth2',
-      name: 'ETH2',
+    eth1: {
+      id: 'eth1',
+      name: 'ETH1',
       enabled: true,
       addressMode: 'dhcp',
       ipAddress: '192.168.251.25',
@@ -105,7 +106,7 @@ export const MOCK_NETWORK_INTERFACE_SETTINGS: INetworkInterfaceSettings = {
       subnetMask: '255.255.255.255',
       gateway: '10.24.8.1',
       dnsPrimary: '223.5.5.5',
-      dnsSecondary: '114.114.114.114',
+      dnsSecondary: '',
       metric: '40',
       defaultRoute: false,
       apn: 'cmnet',
@@ -134,12 +135,10 @@ export const MOCK_NETWORK_INTERFACE_SETTINGS: INetworkInterfaceSettings = {
 export const MOCK_TIME_SETTINGS: ITimeSettings = {
   timezone: 'Asia/Shanghai',
   ntpServer: 'ntp.aliyun.com',
-  manualDateTime: '',
+  ntpEnabled: true,
 };
 
 export const MOCK_SECURITY_SETTINGS: ISecuritySettings = {
-  adminPassword: '********',
-  allowedIps: ['192.168.1.100', '10.0.0.50'],
   sshEnabled: true,
-  httpsOnly: true,
+  hdcEnabled: true,
 };

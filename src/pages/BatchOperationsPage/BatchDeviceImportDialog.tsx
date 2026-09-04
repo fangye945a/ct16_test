@@ -15,19 +15,21 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { toast } from 'sonner';
-import { ArrowLeft, CheckCircle2, CircleAlert, Download, FileSpreadsheet, Loader2, RadioTower, RotateCcw, Upload } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, CircleAlert, Download, FileSpreadsheet, Loader2, RotateCcw, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { LOCAL_CONTROLLER_SERIAL_NUMBER, MOCK_DEVICE_CONTROLLERS } from '@/data/device-controllers';
-import type { IDeviceInstance } from '@/data/device-instances';
-import type { IDeviceModel } from '@/data/device-models';
+import { batchAddDeviceInstances } from '@/api/deviceInstances';
+import { getModules } from '@/api/topology';
 import {
   BuildDeviceBatchImportResult,
   DownloadDeviceImportTemplate,
   ParseDeviceImportWorkbook,
+  type IDeviceBatchImportDevice,
+  type IDeviceBatchImportModel,
+  type IDeviceBatchImportModule,
   type IDeviceBatchImportResult,
   type IDeviceBatchImportRow,
 } from './deviceBatchImport';
@@ -36,35 +38,12 @@ type BatchImportStep = 'upload' | 'preview' | 'running' | 'report';
 
 interface BatchDeviceImportDialogProps {
   open: boolean;
-  devices: IDeviceInstance[];
-  models: IDeviceModel[];
-  onAddLocalDevices: (rows: IDeviceBatchImportRow[]) => void;
-  onComplete: (results: IDeviceBatchImportResult[]) => void;
+  devices: IDeviceBatchImportDevice[];
+  models: IDeviceBatchImportModel[];
+  localControllerSN?: string;
+  onAddLocalDevices?: (rows: IDeviceBatchImportRow[]) => void;
+  onComplete: (results: IDeviceBatchImportResult[]) => Promise<void>;
   onClose: () => void;
-}
-
-function GetRouteLabel(row: IDeviceBatchImportRow): string {
-  if (row.route === 'local') {
-    return '本机添加';
-  }
-  if (row.route === 'softbus') {
-    return '软总线通知';
-  }
-  return '无法分发';
-}
-
-function GetRouteClassName(row: IDeviceBatchImportRow): string {
-  if (row.route === 'local') {
-    return 'bg-primary/10 text-primary';
-  }
-  if (row.route === 'softbus') {
-    return 'bg-info/10 text-info';
-  }
-  return 'bg-destructive/10 text-destructive';
-}
-
-function GetControllerLabel(row: IDeviceBatchImportRow): string {
-  return row.targetController ? `${row.targetController.name} · ${row.controllerSerialNumber}` : row.controllerSerialNumber || '未填写';
 }
 
 function ImportStepIndicator({ currentStep }: { currentStep: BatchImportStep }) {
@@ -104,11 +83,10 @@ function PreviewTable({ rows }: { rows: IDeviceBatchImportRow[] }) {
         <TableHeader>
           <TableRow>
             <TableHead>行号</TableHead>
+            <TableHead>目标控制器 SN</TableHead>
             <TableHead>设备</TableHead>
             <TableHead>设备模型</TableHead>
             <TableHead>设备 SN</TableHead>
-            <TableHead>目标控制器</TableHead>
-            <TableHead>处理路径</TableHead>
             <TableHead>校验结果</TableHead>
           </TableRow>
         </TableHeader>
@@ -116,17 +94,19 @@ function PreviewTable({ rows }: { rows: IDeviceBatchImportRow[] }) {
           {rows.map((row) => (
             <TableRow key={row.rowNumber}>
               <TableCell className="text-muted-foreground">{row.rowNumber}</TableCell>
-              <TableCell className="font-medium">{row.name || '未填写'}</TableCell>
-              <TableCell>{row.modelName || '未填写'}</TableCell>
+              <TableCell className="font-mono text-xs">{row.targetControllerSN || '未填写'}</TableCell>
+              <TableCell className="font-medium">{row.deviceType || '未填写'}</TableCell>
+              <TableCell>{row.deviceModel || '未填写'}</TableCell>
               <TableCell>
                 <span className="font-mono text-xs">{row.serialNumber || '未填写'}</span>
               </TableCell>
-              <TableCell className="max-w-[220px] truncate text-xs">{GetControllerLabel(row)}</TableCell>
               <TableCell>
-                <Badge className={GetRouteClassName(row)}>{GetRouteLabel(row)}</Badge>
-              </TableCell>
-              <TableCell>
-                {row.errors.length === 0 ? (
+                {row.targetControllerSN && !row.targetMatched ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <CircleAlert className="size-3.5" />
+                    目标 SN 不匹配，已跳过
+                  </span>
+                ) : row.errors.length === 0 ? (
                   <span className="inline-flex items-center gap-1 text-xs text-success">
                     <CheckCircle2 className="size-3.5" />
                     可添加
@@ -155,9 +135,8 @@ function ResultTable({ results }: { results: IDeviceBatchImportResult[] }) {
         <TableHeader>
           <TableRow>
             <TableHead>行号</TableHead>
+            <TableHead>目标控制器 SN</TableHead>
             <TableHead>设备 SN</TableHead>
-            <TableHead>目标控制器</TableHead>
-            <TableHead>处理路径</TableHead>
             <TableHead>结果</TableHead>
             <TableHead>说明</TableHead>
           </TableRow>
@@ -166,18 +145,20 @@ function ResultTable({ results }: { results: IDeviceBatchImportResult[] }) {
           {results.map((result) => (
             <TableRow key={result.row.rowNumber}>
               <TableCell>{result.row.rowNumber}</TableCell>
+              <TableCell className="font-mono text-xs">{result.row.targetControllerSN || '未填写'}</TableCell>
               <TableCell>
                 <span className="font-mono text-xs">{result.row.serialNumber || '未填写'}</span>
-              </TableCell>
-              <TableCell className="max-w-[220px] truncate text-xs">{GetControllerLabel(result.row)}</TableCell>
-              <TableCell>
-                <Badge className={GetRouteClassName(result.row)}>{GetRouteLabel(result.row)}</Badge>
               </TableCell>
               <TableCell>
                 {result.status === 'success' ? (
                   <span className="inline-flex items-center gap-1 text-xs text-success">
                     <CheckCircle2 className="size-3.5" />
                     成功
+                  </span>
+                ) : result.status === 'skipped' ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <CircleAlert className="size-3.5" />
+                    已跳过
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-xs text-destructive">
@@ -198,7 +179,15 @@ function ResultTable({ results }: { results: IDeviceBatchImportResult[] }) {
 /**
  * 设备实例批量添加对话框。
  */
-export default function BatchDeviceImportDialog({ open, devices, models, onAddLocalDevices, onComplete, onClose }: BatchDeviceImportDialogProps) {
+export default function BatchDeviceImportDialog({
+  open,
+  devices,
+  models,
+  localControllerSN = '',
+  onAddLocalDevices,
+  onComplete,
+  onClose,
+}: BatchDeviceImportDialogProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [step, setStep] = useState<BatchImportStep>('upload');
   const [fileName, setFileName] = useState('');
@@ -206,6 +195,8 @@ export default function BatchDeviceImportDialog({ open, devices, models, onAddLo
   const [results, setResults] = useState<IDeviceBatchImportResult[]>([]);
   const [processedRows, setProcessedRows] = useState(0);
   const [isParsing, setIsParsing] = useState(false);
+  const processingRef = useRef(false);
+  const completedRef = useRef(false);
 
   const resetState = () => {
     setStep('upload');
@@ -214,6 +205,8 @@ export default function BatchDeviceImportDialog({ open, devices, models, onAddLo
     setResults([]);
     setProcessedRows(0);
     setIsParsing(false);
+    processingRef.current = false;
+    completedRef.current = false;
   };
 
   useEffect(() => {
@@ -223,33 +216,65 @@ export default function BatchDeviceImportDialog({ open, devices, models, onAddLo
   }, [open]);
 
   useEffect(() => {
-    if (step !== 'running' || processedRows >= previewRows.length) {
+    if (step !== 'running' || processingRef.current) {
       return;
     }
-    const timerId = window.setTimeout(() => {
-      const result = BuildDeviceBatchImportResult(previewRows[processedRows]);
-      setResults((current) => [...current, result]);
-      setProcessedRows((current) => current + 1);
-    }, 360);
-    return () => window.clearTimeout(timerId);
-  }, [previewRows, processedRows, step]);
+    processingRef.current = true;
+    const validRows = previewRows.filter((row) => row.errors.length === 0);
+    void (async () => {
+      const invalidResults = previewRows.filter((row) => row.errors.length > 0).map(BuildDeviceBatchImportResult);
+      try {
+        const response = validRows.length === 0 ? { results: [] } : await batchAddDeviceInstances(validRows.map((row) => ({
+          name: row.serialNumber,
+          sn: row.serialNumber,
+          type: row.deviceType,
+          vendor: row.vendor,
+          model: row.deviceModel,
+          index: row.index,
+          devPoint: row.devPoint,
+          groupName: row.groupName,
+          info: row.info,
+          remark: '',
+        })));
+        const resultBySN = new Map(response.results.map((result) => [result.sn, result]));
+        const validResults = validRows.map((row) => {
+          const responseResult = resultBySN.get(row.serialNumber);
+          return responseResult
+            ? { row, status: responseResult.status, message: responseResult.message }
+            : { row, status: 'failed' as const, message: '未收到设备导入结果' };
+        });
+        setResults([...invalidResults, ...validResults].sort((left, right) => left.row.rowNumber - right.row.rowNumber));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '批量添加设备失败';
+        setResults([...invalidResults, ...validRows.map((row) => ({ row, status: 'failed' as const, message }))]);
+      } finally {
+        processingRef.current = false;
+        setProcessedRows(previewRows.length);
+      }
+    })();
+  }, [previewRows, step]);
 
   useEffect(() => {
     if (step !== 'running' || processedRows < previewRows.length) {
       return;
     }
-    const localRows = results.filter((result) => result.status === 'success' && result.row.route === 'local').map((result) => result.row);
-    onAddLocalDevices(localRows);
-    onComplete(results);
-    setStep('report');
+    if (completedRef.current) {
+      return;
+    }
+    completedRef.current = true;
+    if (onAddLocalDevices) {
+      const localRows = results
+        .filter((result) => result.status === 'success' && result.row.targetMatched)
+        .map((result) => result.row);
+      onAddLocalDevices(localRows);
+    }
+    void onComplete(results).finally(() => setStep('report'));
   }, [onAddLocalDevices, onComplete, previewRows.length, processedRows, results, step]);
 
   const validRows = previewRows.filter((row) => row.errors.length === 0);
   const invalidRows = previewRows.length - validRows.length;
   const successfulResults = results.filter((result) => result.status === 'success');
   const failedResults = results.filter((result) => result.status === 'failed');
-  const localResults = successfulResults.filter((result) => result.row.route === 'local');
-  const softbusResults = successfulResults.filter((result) => result.row.route === 'softbus');
   const progressValue = previewRows.length > 0 ? (processedRows / previewRows.length) * 100 : 0;
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -264,7 +289,27 @@ export default function BatchDeviceImportDialog({ open, devices, models, onAddLo
     }
     setIsParsing(true);
     try {
-      const rows = await ParseDeviceImportWorkbook(file, models, devices, MOCK_DEVICE_CONTROLLERS, LOCAL_CONTROLLER_SERIAL_NUMBER);
+      if (!localControllerSN) {
+        throw new Error('未读取到本机控制器 SN，暂时无法校验目标控制器');
+      }
+      let modules: IDeviceBatchImportModule[];
+      try {
+        const response = await getModules();
+        modules = response.modules
+          .filter((module) => module.groupIndex > 0 && module.channelCount > 0)
+          .sort((left, right) => left.groupIndex - right.groupIndex)
+          .filter((module, index, items) => index === 0 || items[index - 1].groupIndex !== module.groupIndex)
+          .map((module) => ({
+            groupIndex: module.groupIndex,
+            moduleType: module.moduleType,
+            channelCount: module.channelCount,
+            funcMask: module.funcMask,
+            ports: module.ports.map((port) => ({ index: port.index, direction: port.direction })),
+          }));
+      } catch {
+        throw new Error('读取控制器硬件资源失败，无法校验 info，请稍后重试');
+      }
+      const rows = await ParseDeviceImportWorkbook(file, models, devices, localControllerSN, modules);
       if (rows.length === 0) {
         toast.error('Excel 中没有可导入的设备记录');
         return;
@@ -285,6 +330,14 @@ export default function BatchDeviceImportDialog({ open, devices, models, onAddLo
     }
   };
 
+  const handleDownloadTemplate = () => {
+    if (models.length === 0) {
+      toast.error('未检测到设备模型，请先导入或同步设备模型');
+      return;
+    }
+    DownloadDeviceImportTemplate(models, localControllerSN);
+  };
+
   const handleRestart = () => {
     resetState();
   };
@@ -297,7 +350,7 @@ export default function BatchDeviceImportDialog({ open, devices, models, onAddLo
             <FileSpreadsheet className="size-5 text-primary" />
             批量添加设备
           </DialogTitle>
-          <DialogDescription>上传 Excel 模板后，系统按控制器 SN 号分发设备，并生成逐行添加报告。</DialogDescription>
+          <DialogDescription>仅导入目标控制器 SN 与本机 SN 一致的行，其他行会自动跳过。</DialogDescription>
         </DialogHeader>
 
         <ImportStepIndicator currentStep={step} />
@@ -313,17 +366,22 @@ export default function BatchDeviceImportDialog({ open, devices, models, onAddLo
                   <div>
                     <div className="font-semibold">使用批量添加模板</div>
                     <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                      模板包含控制器 SN、设备模型、设备 SN、通信信息等字段。上传后会先校验并预览，确认后才开始添加。
+                      模板按控制器已加载的设备模型生成，填写设备 SN、目标控制器 SN 与现场参数后可导入。
                     </p>
                   </div>
                 </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Button variant="outline" className="h-auto justify-start gap-3 p-4" onClick={DownloadDeviceImportTemplate}>
+                <Button
+                  variant="outline"
+                  className="h-auto justify-start gap-3 p-4"
+                  onClick={handleDownloadTemplate}
+                  disabled={!localControllerSN || models.length === 0}
+                >
                   <Download className="size-5 text-primary" />
                   <span className="text-left">
                     <span className="block font-semibold">下载 Excel 模板</span>
-                    <span className="mt-1 block text-xs font-normal text-muted-foreground">包含设备实例和填写说明</span>
+                    <span className="mt-1 block text-xs font-normal text-muted-foreground">按控制器实际模型生成配置示例</span>
                   </span>
                 </Button>
                 <Button className="h-auto justify-start gap-3 p-4" onClick={() => fileInputRef.current?.click()} disabled={isParsing}>
@@ -335,10 +393,6 @@ export default function BatchDeviceImportDialog({ open, devices, models, onAddLo
                 </Button>
               </div>
               <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleFileChange} />
-              <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                <RadioTower className="size-3.5 text-primary" />
-                本机控制器 SN：<span className="font-mono text-foreground">{LOCAL_CONTROLLER_SERIAL_NUMBER}</span>
-              </div>
             </div>
           )}
 
@@ -365,7 +419,7 @@ export default function BatchDeviceImportDialog({ open, devices, models, onAddLo
             <div className="space-y-5 py-4">
               <div className="text-center">
                 <div className="text-lg font-semibold">正在添加设备</div>
-                <p className="mt-1 text-sm text-muted-foreground">本机设备直接添加，其它控制器通过软总线通知</p>
+                <p className="mt-1 text-sm text-muted-foreground">正在向当前控制器添加设备</p>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
@@ -376,18 +430,14 @@ export default function BatchDeviceImportDialog({ open, devices, models, onAddLo
                 </div>
                 <Progress value={progressValue} className="h-2.5" />
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
                   <div className="text-xs text-muted-foreground">已处理</div>
                   <div className="mt-1 text-xl font-bold">{processedRows}</div>
                 </div>
                 <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
-                  <div className="text-xs text-muted-foreground">本机添加</div>
-                  <div className="mt-1 text-xl font-bold text-primary">{localResults.length}</div>
-                </div>
-                <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
-                  <div className="text-xs text-muted-foreground">软总线通知</div>
-                  <div className="mt-1 text-xl font-bold text-info">{softbusResults.length}</div>
+                <div className="text-xs text-muted-foreground">成功</div>
+                  <div className="mt-1 text-xl font-bold text-primary">{successfulResults.length}</div>
                 </div>
                 <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
                   <div className="text-xs text-muted-foreground">失败</div>
@@ -407,18 +457,14 @@ export default function BatchDeviceImportDialog({ open, devices, models, onAddLo
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">共处理 {results.length} 条记录，详细结果如下。</p>
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
                   <div className="text-xs text-muted-foreground">总记录</div>
                   <div className="mt-1 text-xl font-bold">{results.length}</div>
                 </div>
                 <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
-                  <div className="text-xs text-muted-foreground">本机成功</div>
-                  <div className="mt-1 text-xl font-bold text-primary">{localResults.length}</div>
-                </div>
-                <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
-                  <div className="text-xs text-muted-foreground">软总线成功</div>
-                  <div className="mt-1 text-xl font-bold text-info">{softbusResults.length}</div>
+                  <div className="text-xs text-muted-foreground">成功</div>
+                  <div className="mt-1 text-xl font-bold text-primary">{successfulResults.length}</div>
                 </div>
                 <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
                   <div className="text-xs text-muted-foreground">失败</div>
@@ -446,6 +492,7 @@ export default function BatchDeviceImportDialog({ open, devices, models, onAddLo
                 onClick={() => {
                   setResults([]);
                   setProcessedRows(0);
+                  completedRef.current = false;
                   setStep('running');
                 }}
                 disabled={validRows.length === 0}

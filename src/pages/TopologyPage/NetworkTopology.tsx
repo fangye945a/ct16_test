@@ -2,13 +2,16 @@ import { useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import {
   Crown,
   Home,
   Wifi,
   Users,
+  Loader2,
 } from 'lucide-react';
-import { MOCK_NETWORK_DEVICES, type INetworkDevice } from '@/data/topology';
+import { type INetworkDevice } from '@/data/topology';
+import { useNetworkTopology } from '@/hooks/useNetworkTopology';
 
 // ── 设备图标（不同型号不同形状）──────────────────────────────────
 
@@ -28,20 +31,6 @@ function DeviceIcon({ model, status, size = 40 }: { model: string; status: strin
         <rect x="22" y="19" width="8" height="3" rx="1.5" fill={fillColor} opacity="0.5" />
         <rect x="10" y="25" width="20" height="3" rx="1.5" fill={fillColor} opacity="0.3" />
         <circle cx="32" cy="8" r="2.5" fill={fillColor} className={isOnline ? 'animate-pulse' : ''} />
-      </svg>
-    );
-  }
-
-  // CT16: 稍大矩形高性能控制器
-  if (model === 'CT16') {
-    return (
-      <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-        <rect x="2" y="4" width="36" height="32" rx="6" fill={fillBg} stroke={strokeColor} strokeWidth="1.5" />
-        <rect x="8" y="10" width="24" height="5" rx="2" fill={fillColor} opacity="0.35" />
-        <rect x="8" y="18" width="10" height="3" rx="1.5" fill={fillColor} opacity="0.5" />
-        <rect x="22" y="18" width="10" height="3" rx="1.5" fill={fillColor} opacity="0.5" />
-        <rect x="8" y="24" width="16" height="3" rx="1.5" fill={fillColor} opacity="0.3" />
-        <circle cx="34" cy="8" r="2.5" fill={fillColor} className={isOnline ? 'animate-pulse' : ''} />
       </svg>
     );
   }
@@ -184,9 +173,16 @@ function BusNodeCard({
 
         {/* 设备名称 */}
         <div className="text-center">
-          <div className="text-[11px] font-black text-[#111827] truncate leading-tight">
-            {getShortName(device)}
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="text-[11px] font-black text-[#111827] truncate leading-tight">
+                {getShortName(device)}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{device.name}</p>
+            </TooltipContent>
+          </Tooltip>
           <div className="mt-0.5 text-xs font-bold text-[#9CA3AF]">{device.model}</div>
         </div>
 
@@ -219,13 +215,13 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const busYPct = 54;
-
-  const master = MOCK_NETWORK_DEVICES.find((d) => d.role === 'master')!;
-  const slaves = MOCK_NETWORK_DEVICES.filter((d) => d.role === 'slave');
+  const { devices, links: _links, master, slaves, onlineCount, totalCount, loading, error, refresh } = useNetworkTopology();
 
   // 所有设备按顺序排列（master 在中间偏左位置）
-  const orderedDevices = [master, ...slaves];
-  const deviceXPct = orderedDevices.map((_, i) => 10 + (i / (orderedDevices.length - 1)) * 80);
+  const orderedDevices = master ? [master, ...slaves] : slaves;
+  const deviceXPct = orderedDevices.length > 1
+    ? orderedDevices.map((_, i) => 10 + (i / (orderedDevices.length - 1)) * 80)
+    : [50];
   const deviceLayout = orderedDevices.map((device, i) => {
     const isAbove = i % 2 === 0;
     return {
@@ -234,16 +230,13 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
       isAbove,
       nodeYPct: isAbove ? 32 : 76,
       cardTopPct: isAbove ? 26 : 70,
-      latencyYPct: isAbove ? busYPct - 8 : busYPct + 16,
     };
   });
-  const onlineCount = orderedDevices.filter((d) => d.status === 'online').length;
-  const totalCount = orderedDevices.length;
-  const masterLayout = deviceLayout.find((item) => item.device.role === 'master')!;
+  const masterLayout = deviceLayout.find((item) => item.device.role === 'master');
   const connectionFlowSpecs = deviceLayout
     .filter((item) => item.device.role === 'slave')
     .flatMap((item, index) => {
-      if (masterLayout.device.status !== 'online' || item.device.status !== 'online') {
+      if (!masterLayout || masterLayout.device.status !== 'online' || item.device.status !== 'online') {
         return [];
       }
 
@@ -319,6 +312,54 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
     setScale(1);
     setPan({ x: 0, y: 0 });
   };
+
+  // 加载状态
+  if (loading && devices.length === 0) {
+    return (
+      <div className="relative bg-white rounded-[48px] border border-[#F3F4F6] shadow-sm overflow-hidden">
+        <div className="flex items-center justify-center h-[620px]">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="size-8 text-[#00B894] animate-spin" />
+            <span className="text-sm font-bold text-[#9CA3AF]">正在加载组网拓扑...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 错误状态
+  if (error && devices.length === 0) {
+    return (
+      <div className="relative bg-white rounded-[48px] border border-[#F3F4F6] shadow-sm overflow-hidden">
+        <div className="flex items-center justify-center h-[620px]">
+          <div className="flex flex-col items-center gap-3 max-w-md text-center">
+            <Wifi className="size-8 text-[#9CA3AF]" />
+            <span className="text-sm font-bold text-[#9CA3AF]">{error}</span>
+            <button
+              onClick={refresh}
+              className="px-4 py-2 rounded-2xl bg-[#00B894]/10 text-sm font-black text-[#00B894] hover:bg-[#00B894]/20 transition-all"
+            >
+              重试
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 空状态
+  if (devices.length === 0) {
+    return (
+      <div className="relative bg-white rounded-[48px] border border-[#F3F4F6] shadow-sm overflow-hidden">
+        <div className="flex items-center justify-center h-[620px]">
+          <div className="flex flex-col items-center gap-3">
+            <Wifi className="size-8 text-[#9CA3AF]" />
+            <span className="text-sm font-bold text-[#9CA3AF]">暂未发现局域网设备</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative bg-white rounded-[48px] border border-[#F3F4F6] shadow-sm overflow-hidden">
@@ -473,7 +514,7 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
             ))}
 
             {/* 设备连接线 */}
-            {deviceLayout.map(({ device, xPct, isAbove, nodeYPct, latencyYPct }) => {
+            {deviceLayout.map(({ device, xPct, nodeYPct }) => {
               const isOnline = device.status === 'online';
               const isMaster = device.role === 'master';
               const lineColor = isOnline ? '#00B894' : '#D1D5DB';
@@ -508,27 +549,13 @@ export default function NetworkTopology({ onNodeSelect }: { onNodeSelect: (d: IN
                     fill={lineColor}
                     className={isOnline ? 'animate-pulse' : ''}
                   />
-                  {/* 延迟标注 */}
-                  {isOnline && device.latency > 0 && (
-                    <text
-                      x={`${xPct}%`}
-                      y={`${latencyYPct}%`}
-                      textAnchor="middle"
-                      fill="#9CA3AF"
-                      fontSize="8"
-                      fontWeight="700"
-                      fontFamily="'Plus Jakarta Sans', sans-serif"
-                    >
-                      {device.latency}ms
-                    </text>
-                  )}
                 </g>
               );
             })}
           </svg>
 
           {/* ── 设备节点 ── */}
-          {deviceLayout.map(({ device, xPct, isAbove, cardTopPct }, i) => {
+          {deviceLayout.map(({ device, xPct, cardTopPct }, i) => {
             const isMaster = device.role === 'master';
             // 第一个设备（master）同时是本机
             const isLocal = i === 0;

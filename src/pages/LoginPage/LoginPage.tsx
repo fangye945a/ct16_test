@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,17 +8,27 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Shield, Eye, EyeOff, LogIn } from 'lucide-react';
 import { toast } from 'sonner';
-import { logger } from '@lark-apaas/client-toolkit-lite';
+import { login } from '@/api/auth';
+import { clearSessionToken } from '@/api/client';
+import { BrandLogo } from '@/components/BrandLogo';
+import { CT16_APPEARANCE_EVENT, getCt16Appearance } from '@/lib/appearance';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(() => localStorage.getItem('ct16:rememberedUser') || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => Boolean(localStorage.getItem('ct16:rememberedUser')));
   const [loading, setLoading] = useState(false);
+  const [appearance, setAppearance] = useState(getCt16Appearance);
 
-  const handleLogin = (e: FormEvent) => {
+  useEffect(() => {
+    const syncAppearance = () => setAppearance(getCt16Appearance());
+    window.addEventListener(CT16_APPEARANCE_EVENT, syncAppearance);
+    return () => window.removeEventListener(CT16_APPEARANCE_EVENT, syncAppearance);
+  }, []);
+
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
       toast.error('请输入用户名和密码');
@@ -27,33 +37,26 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    // Mock 登录验证
-    setTimeout(() => {
-      const stored = localStorage.getItem('zaihong:credentials');
-      if (!stored) {
-        setLoading(false);
-        toast.error('尚未设置管理员账号');
-        navigate('/setup');
-        return;
+    try {
+      await login(username.trim(), password, rememberMe);
+      if (rememberMe) {
+        localStorage.setItem('ct16:rememberedUser', username.trim());
+      } else {
+        localStorage.removeItem('ct16:rememberedUser');
       }
-
-      try {
-        const creds = JSON.parse(stored);
-        if (creds.username === username && creds.password === password) {
-          localStorage.setItem('zaihong:isLoggedIn', 'true');
-          if (rememberMe) {
-            localStorage.setItem('zaihong:rememberedUser', username);
-          }
-          toast.success('登录成功');
-          navigate('/');
-        } else {
-          toast.error('用户名或密码错误');
-        }
-      } catch {
-        toast.error('登录验证失败');
-      }
+      // 清除旧版 localStorage 凭据（迁移清理）
+      localStorage.removeItem('zaihong:credentials');
+      localStorage.removeItem('zaihong:isAccountSetup');
+      localStorage.removeItem('zaihong:isLoggedIn');
+      toast.success('登录成功');
+      navigate('/');
+    } catch (err: unknown) {
+      clearSessionToken();
+      const msg = err instanceof Error ? err.message : '登录失败';
+      toast.error(msg);
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   return (
@@ -66,14 +69,11 @@ export default function LoginPage() {
       >
         {/* Logo + 标题 */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center size-16 rounded-2xl bg-primary/10 mb-4">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-              <rect x="3" y="3" width="18" height="18" rx="4" />
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
-            </svg>
+          <div className={`inline-flex items-center justify-center size-16 rounded-2xl mb-4 ${appearance.logoType === 'custom' ? 'bg-transparent' : 'bg-primary/10'}`}>
+            <BrandLogo logoType={appearance.logoType} logoImage={appearance.logoImage} className="size-8 text-primary" />
           </div>
-          <h1 className="text-xl font-black text-foreground">在鸿设备管理系统</h1>
+          <h1 className="text-xl font-black text-foreground">{appearance.systemName}</h1>
+          <p className="text-sm text-muted-foreground mt-1">CT16 · OpenHarmony</p>
         </div>
 
         <Card className="border-border/40 bg-card/60 shadow-sm">
@@ -125,6 +125,7 @@ export default function LoginPage() {
                   id="remember"
                   checked={rememberMe}
                   onCheckedChange={(v) => setRememberMe(v === true)}
+                  className="border-2 border-slate-400 bg-background shadow-sm hover:border-primary dark:border-slate-500"
                 />
                 <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
                   记住我

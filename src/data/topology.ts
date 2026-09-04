@@ -11,9 +11,6 @@ export interface INetworkDevice {
   status: 'online' | 'offline'
   ip: string
   firmware: string
-  uptime: string
-  latency: number
-  throughput: string
   angle: number
   distance: number
 }
@@ -24,8 +21,6 @@ export interface INetworkLink {
   target: string
   label: string
   status: 'active' | 'inactive'
-  latency: number
-  quality: 'excellent' | 'good' | 'fair' | 'poor'
 }
 
 export const MOCK_NETWORK_DEVICES: INetworkDevice[] = [
@@ -38,9 +33,6 @@ export const MOCK_NETWORK_DEVICES: INetworkDevice[] = [
     status: 'online',
     ip: '192.168.1.10',
     firmware: 'v3.2.1',
-    uptime: '45天 12时 30分',
-    latency: 0,
-    throughput: '1.2 Gbps',
     angle: 0,
     distance: 0,
   },
@@ -53,9 +45,6 @@ export const MOCK_NETWORK_DEVICES: INetworkDevice[] = [
     status: 'online',
     ip: '192.168.1.11',
     firmware: 'v3.2.0',
-    uptime: '30天 8时 15分',
-    latency: 3,
-    throughput: '800 Mbps',
     angle: -72,
     distance: 200,
   },
@@ -68,9 +57,6 @@ export const MOCK_NETWORK_DEVICES: INetworkDevice[] = [
     status: 'online',
     ip: '192.168.1.20',
     firmware: 'v2.8.5',
-    uptime: '60天 3时 42分',
-    latency: 5,
-    throughput: '950 Mbps',
     angle: -144,
     distance: 220,
   },
@@ -83,9 +69,6 @@ export const MOCK_NETWORK_DEVICES: INetworkDevice[] = [
     status: 'online',
     ip: '192.168.1.30',
     firmware: 'v4.1.0',
-    uptime: '22天 16时 8分',
-    latency: 8,
-    throughput: '620 Mbps',
     angle: 144,
     distance: 220,
   },
@@ -98,9 +81,6 @@ export const MOCK_NETWORK_DEVICES: INetworkDevice[] = [
     status: 'offline',
     ip: '192.168.1.50',
     firmware: 'HarmonyOS 4.0',
-    uptime: '0天 0时 0分',
-    latency: 0,
-    throughput: '0 Mbps',
     angle: 72,
     distance: 200,
   },
@@ -113,20 +93,17 @@ export const MOCK_NETWORK_DEVICES: INetworkDevice[] = [
     status: 'online',
     ip: '192.168.1.21',
     firmware: 'v2.8.5',
-    uptime: '35天 9时 20分',
-    latency: 6,
-    throughput: '880 Mbps',
     angle: 0,
     distance: 260,
   },
 ];
 
 export const MOCK_NETWORK_LINKS: INetworkLink[] = [
-  { id: 'nlink-1', source: 'net-master', target: 'net-slave-01', label: '软总线', status: 'active', latency: 3, quality: 'excellent' },
-  { id: 'nlink-2', source: 'net-master', target: 'net-slave-02', label: '软总线', status: 'active', latency: 5, quality: 'excellent' },
-  { id: 'nlink-3', source: 'net-master', target: 'net-slave-03', label: '软总线', status: 'active', latency: 8, quality: 'good' },
-  { id: 'nlink-4', source: 'net-master', target: 'net-slave-04', label: '软总线', status: 'inactive', latency: 0, quality: 'poor' },
-  { id: 'nlink-5', source: 'net-master', target: 'net-slave-05', label: '软总线', status: 'active', latency: 6, quality: 'good' },
+  { id: 'nlink-1', source: 'net-master', target: 'net-slave-01', label: '软总线', status: 'active' },
+  { id: 'nlink-2', source: 'net-master', target: 'net-slave-02', label: '软总线', status: 'active' },
+  { id: 'nlink-3', source: 'net-master', target: 'net-slave-03', label: '软总线', status: 'active' },
+  { id: 'nlink-4', source: 'net-master', target: 'net-slave-04', label: '软总线', status: 'inactive' },
+  { id: 'nlink-5', source: 'net-master', target: 'net-slave-05', label: '软总线', status: 'active' },
 ];
 
 // ===== 二、设备拓扑（下游子设备）=====
@@ -135,6 +112,8 @@ export interface IDeviceNode {
   id: string
   name: string
   deviceType: string
+  modelName?: string
+  iconUrl?: string
   category: 'sensor' | 'actuator' | 'input' | 'other'
   interfaceType: string
   interfaceLabel: string
@@ -146,6 +125,18 @@ export interface IDeviceNode {
   description: string
   location: string
   lastUpdate: string
+  readError?: string
+  statusValues?: Array<{
+    id: string
+    name: string
+    value: string
+    unit: string
+    isEnum: boolean
+    values: Array<{
+      valueJSON: string
+      meaning: string
+    }>
+  }>
   angle: number
   distance: number
   group: 'rs485' | 'di' | 'do' | 'ai' | 'ao' | 'eth'
@@ -160,11 +151,17 @@ export interface IDeviceLink {
 }
 
 export const MOCK_DEVICE_NODES: IDeviceNode[] = [
-  { id: 'dev-covi-1', name: '能见度仪-01', deviceType: 'covi', category: 'sensor', interfaceType: 'RS485', interfaceLabel: 'COVI RS485 通信接口', status: 'normal', value: '0', unit: 'ppm', serialNumber: 'SN-COVI-0001', address: 'RS485-1', description: '隧道能见度和一氧化碳监测', location: '隧道入口', lastUpdate: '2秒前', angle: -90, distance: 200, group: 'rs485' },
-  { id: 'dev-brightness-1', name: '亮度计-01', deviceType: 'outSideBrightness', category: 'sensor', interfaceType: 'CI', interfaceLabel: '洞外亮度电流输入', status: 'normal', value: '0.0', unit: 'cd/m2', serialNumber: 'SN-LUX-0001', address: 'CI-1-1', description: '隧道洞外亮度监测', location: '隧道洞外', lastUpdate: '3秒前', angle: -20, distance: 205, group: 'ai' },
-  { id: 'dev-roll-door-1', name: '卷帘门-01', deviceType: 'rollDoor', category: 'actuator', interfaceType: 'DO', interfaceLabel: '开门控制', status: 'normal', value: 'up', unit: '', serialNumber: 'SN-ROLL-0001', address: 'DO-1-1', description: '隧道卷帘门状态监测和控制', location: '隧道出口', lastUpdate: '1秒前', angle: 40, distance: 200, group: 'do' },
-  { id: 'dev-two-lane-1', name: '两车道指示器-01', deviceType: 'twoLaneIndicator', category: 'actuator', interfaceType: 'DO', interfaceLabel: '正面绿灯控制', status: 'normal', value: 'frontGreenBackRed', unit: '', serialNumber: 'SN-LANE2-0001', address: 'DO-2-1', description: '隧道两车道通行状态指示', location: '隧道中段', lastUpdate: '1秒前', angle: 120, distance: 205, group: 'do' },
-  { id: 'dev-three-lane-1', name: '三车道指示器-01', deviceType: 'threeLaneIndicator', category: 'actuator', interfaceType: 'DO', interfaceLabel: '正面绿灯控制', status: 'warning', value: 'leftArrow', unit: '', serialNumber: 'SN-LANE3-0001', address: 'DO-3-1', description: '隧道三车道通行状态指示', location: '隧道出口前', lastUpdate: '4秒前', angle: 220, distance: 200, group: 'do' },
+  { id: 'dev-th-1', name: '温湿度传感器-01', deviceType: '温湿度传感器', category: 'sensor', interfaceType: 'RS485', interfaceLabel: 'RS485-1', status: 'normal', value: '25.6 / 65', unit: '℃/%RH', serialNumber: 'SN-TH-0001', address: 'MODBUS-0x01', description: '车间环境温湿度监测', location: '车间A区-东墙', lastUpdate: '2秒前', angle: -90, distance: 200, group: 'rs485' },
+  { id: 'dev-th-2', name: '温湿度传感器-02', deviceType: '温湿度传感器', category: 'sensor', interfaceType: 'RS485', interfaceLabel: 'RS485-1', status: 'normal', value: '24.9 / 62', unit: '℃/%RH', serialNumber: 'SN-TH-0002', address: 'MODBUS-0x02', description: '仓库环境温湿度监测', location: '原料仓库-中区', lastUpdate: '3秒前', angle: -50, distance: 205, group: 'rs485' },
+  { id: 'dev-th-3', name: '温湿度传感器-03', deviceType: '温湿度传感器', category: 'sensor', interfaceType: 'RS485', interfaceLabel: 'RS485-2', status: 'warning', value: '31.2 / 71', unit: '℃/%RH', serialNumber: 'SN-TH-0003', address: 'MODBUS-0x03', description: '电控柜温湿度监测', location: '电控柜-顶部', lastUpdate: '4秒前', angle: -10, distance: 200, group: 'rs485' },
+  { id: 'dev-act-1', name: '执行器-风机', deviceType: '执行器', category: 'actuator', interfaceType: 'DO', interfaceLabel: 'DO-01', status: 'normal', value: '运行中', unit: '', serialNumber: 'SN-ACT-0001', address: 'DO-CH01', description: '车间通风主风机', location: '车间A区-屋顶', lastUpdate: '1秒前', angle: 50, distance: 200, group: 'do' },
+  { id: 'dev-act-2', name: '执行器-调节阀', deviceType: '执行器', category: 'actuator', interfaceType: 'AO', interfaceLabel: 'AO-01', status: 'normal', value: '45', unit: '%', serialNumber: 'SN-ACT-0002', address: 'AO-CH01', description: '冷却水流量调节阀', location: '冷却系统-进水口', lastUpdate: '3秒前', angle: 110, distance: 200, group: 'ao' },
+  { id: 'dev-act-3', name: '执行器-信号灯', deviceType: '执行器', category: 'actuator', interfaceType: 'DO', interfaceLabel: 'DO组-01', status: 'normal', value: '绿灯亮', unit: '', serialNumber: 'SN-ACT-0003', address: 'DO-CH04-06', description: '车间通道交通指示', location: '车间通道-交叉口', lastUpdate: '1秒前', angle: 170, distance: 205, group: 'do' },
+  { id: 'dev-input-1', name: '输入设备-急停', deviceType: '输入设备', category: 'input', interfaceType: 'DI', interfaceLabel: 'DI-01', status: 'normal', value: '未按下', unit: '', serialNumber: 'SN-IN-0001', address: 'DI-CH01', description: '急停按钮（主回路）', location: '1号生产线-操作台', lastUpdate: '1秒前', angle: 230, distance: 200, group: 'di' },
+  { id: 'dev-input-2', name: '输入设备-门磁', deviceType: '输入设备', category: 'input', interfaceType: 'DI', interfaceLabel: 'DI-02', status: 'normal', value: '闭合', unit: '', serialNumber: 'SN-IN-0002', address: 'DI-CH02', description: '控制柜门磁状态', location: '主控柜-前门', lastUpdate: '2秒前', angle: 250, distance: 205, group: 'di' },
+  { id: 'dev-input-3', name: '输入设备-限位', deviceType: '输入设备', category: 'input', interfaceType: 'DI', interfaceLabel: 'DI-03', status: 'offline', value: '离线', unit: '', serialNumber: 'SN-IN-0003', address: 'DI-CH03', description: '输送线末端限位开关', location: '输送线-末端', lastUpdate: '5分钟前', angle: 265, distance: 205, group: 'di' },
+  { id: 'dev-plc-1', name: 'PLC控制器-01', deviceType: 'PLC控制器', category: 'other', interfaceType: 'ETH', interfaceLabel: 'ETH1', status: 'normal', value: '在线', unit: '', serialNumber: 'SN-PLC-0001', address: '192.168.1.50', description: '辅助产线逻辑控制', location: '2号生产线-控制柜', lastUpdate: '1秒前', angle: 290, distance: 200, group: 'eth' },
+  { id: 'dev-plc-2', name: 'PLC控制器-02', deviceType: 'PLC控制器', category: 'other', interfaceType: 'ETH', interfaceLabel: 'ETH2', status: 'normal', value: '在线', unit: '', serialNumber: 'SN-PLC-0002', address: '192.168.1.51', description: '包装线联动控制', location: '包装线-控制柜', lastUpdate: '2秒前', angle: 310, distance: 200, group: 'eth' },
 ];
 
 export const MOCK_DEVICE_LINKS: IDeviceLink[] = MOCK_DEVICE_NODES.map((node) => ({
@@ -275,8 +272,8 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
     channelList: Array.from({ length: 16 }, (_, i) => ({
       index: i + 1,
       label: `DI-${String(i + 1).padStart(2, '0')}`,
-      status: 'normal' as IModuleChannel['status'],
-      value: i % 3 === 0 ? 'OFF' : 'ON',
+      status: (i === 13 || i === 14 ? 'warning' : i === 15 ? 'off' : 'normal') as IModuleChannel['status'],
+      value: i === 15 ? 'OFF' : (i % 3 === 0 ? 'OFF' : 'ON'),
       unit: '',
     })),
     position: 'right',
@@ -398,3 +395,197 @@ export const MOCK_MODULE_SLOTS: IModuleSlot[] = [
     position: 'right',
   },
 ];
+
+// ===== 四、API 数据转换函数 =====
+
+import type {
+  Ct16NetworkDeviceDto,
+  Ct16NetworkDeviceListDto,
+  Ct16CustomNetworkDeviceDto,
+  Ct16CustomNetworkDeviceListDto,
+} from '@/api/types'
+
+/**
+ * 将后端组网拓扑 DTO 转换为前端 INetworkDevice 类型
+ */
+export function mapNetworkDtoToDevice(dto: Ct16NetworkDeviceDto): INetworkDevice {
+  return {
+    id: dto.devId,
+    name: dto.devName,
+    model: dto.deviceType,
+    deviceType: dto.deviceType,
+    role: dto.role,
+    status: dto.onlineStatus ? 'online' : 'offline',
+    ip: '',
+    firmware: dto.devVersion,
+    angle: 0,
+    distance: 0,
+  }
+}
+
+/**
+ * 将后端组网拓扑列表转换为前端格式
+ */
+export function mapNetworkDtoListToDevices(
+  list: Ct16NetworkDeviceListDto,
+): { devices: INetworkDevice[]; links: INetworkLink[] } {
+  const devices = list.devices.map(mapNetworkDtoToDevice)
+
+  // 为 devices 计算布局角度和距离
+  const totalSlaves = devices.filter((d) => d.role === 'slave').length
+  let slaveIndex = 0
+  for (const d of devices) {
+    if (d.role === 'slave') {
+      const angle = -72 + (slaveIndex / Math.max(totalSlaves - 1, 1)) * 144
+      d.angle = angle
+      d.distance = 200 + (slaveIndex % 3) * 10
+      slaveIndex++
+    }
+  }
+
+  // 生成软总线连接
+  const master = devices.find((d) => d.role === 'master')
+  const links = devices
+    .filter((d) => d.role === 'slave')
+    .map((slave, i) => ({
+      id: `nlink-${i + 1}`,
+      source: master?.id ?? '',
+      target: slave.id,
+      label: '软总线',
+      status: (slave.status === 'online' ? 'active' : 'inactive') as 'active' | 'inactive',
+    }))
+
+  return { devices, links }
+}
+
+/**
+ * 解析 base64 编码的 customData JSON，提取设备自定义字段
+ */
+function parseCustomData(customData: string): { ip: string; fwVer: string; master: string } {
+  try {
+    if (!customData) {
+      return { ip: '', fwVer: '', master: '' }
+    }
+    const decoded = atob(customData)
+    const data = JSON.parse(decoded)
+    return {
+      ip: typeof data.ip === 'string' ? data.ip : '',
+      fwVer: typeof data.fwVer === 'string' ? data.fwVer : '',
+      master: typeof data.master === 'string' ? data.master : '',
+    }
+  } catch {
+    return { ip: '', fwVer: '', master: '' }
+  }
+}
+
+/**
+ * 将后端系统拓扑自定义设备列表转换为前端组网拓扑格式，
+ * 从 customData 中解析 ip、fwVer、master 字段
+ */
+export function mapCustomDtoListToNetworkDevices(
+  list: Ct16CustomNetworkDeviceListDto,
+): { devices: INetworkDevice[]; links: INetworkLink[] } {
+  const devices: INetworkDevice[] = list.devices.map((dto) => {
+    const custom = parseCustomData(dto.customData)
+    return {
+      id: dto.devId,
+      name: dto.devName,
+      model: dto.deviceType,
+      deviceType: dto.deviceType,
+      role: dto.role,
+      status: dto.onlineStatus ? 'online' : 'offline',
+      ip: custom.ip,
+      firmware: custom.fwVer || dto.devVersion,
+      angle: 0,
+      distance: 0,
+    }
+  })
+
+  // 为 devices 计算布局角度和距离
+  const totalSlaves = devices.filter((d) => d.role === 'slave').length
+  let slaveIndex = 0
+  for (const d of devices) {
+    if (d.role === 'slave') {
+      const angle = -72 + (slaveIndex / Math.max(totalSlaves - 1, 1)) * 144
+      d.angle = angle
+      d.distance = 200 + (slaveIndex % 3) * 10
+      slaveIndex++
+    }
+  }
+
+  // 生成软总线连接
+  const master = devices.find((d) => d.role === 'master')
+  const links = devices
+    .filter((d) => d.role === 'slave')
+    .map((slave, i) => ({
+      id: `nlink-${i + 1}`,
+      source: master?.id ?? '',
+      target: slave.id,
+      label: '软总线',
+      status: (slave.status === 'online' ? 'active' : 'inactive') as 'active' | 'inactive',
+    }))
+
+  return { devices, links }
+}
+
+/**
+ * 将后端系统拓扑自定义设备 DTO 转换为前端 IDeviceNode 类型
+ */
+export function mapCustomDtoToDeviceNode(
+  dto: Ct16CustomNetworkDeviceDto,
+): IDeviceNode {
+  const categoryMap: Record<string, IDeviceNode['category']> = {
+    sensor: 'sensor',
+    actuator: 'actuator',
+    input: 'input',
+  }
+
+  return {
+    id: dto.devId,
+    name: dto.devName,
+    deviceType: dto.deviceType || '未知设备',
+    category: categoryMap[dto.deviceType] ?? 'other',
+    interfaceType: '软总线',
+    interfaceLabel: 'SoftBus',
+    status: dto.onlineStatus ? 'normal' : 'offline',
+    value: dto.onlineStatus ? '在线' : '离线',
+    unit: '',
+    serialNumber: dto.devId,
+    address: '',
+    description: dto.devName,
+    location: '',
+    lastUpdate: new Date().toLocaleString(),
+    angle: 0,
+    distance: 0,
+    group: 'eth',
+  }
+}
+
+/**
+ * 将后端系统拓扑列表转换为前端格式
+ */
+export function mapCustomDtoListToDeviceNodes(
+  list: Ct16CustomNetworkDeviceListDto,
+): { nodes: IDeviceNode[]; links: { id: string; source: string; target: string; interfaceType: string; label: string }[] } {
+  // 跳过本机（master），其他设备作为下游节点
+  const slaveDevices = list.devices.filter((d) => d.role === 'slave')
+  const nodes = slaveDevices.map(mapCustomDtoToDeviceNode)
+
+  // 更新角度和距离
+  const totalNodes = nodes.length
+  for (let i = 0; i < totalNodes; i++) {
+    nodes[i].angle = -90 + (i / Math.max(totalNodes - 1, 1)) * 180
+    nodes[i].distance = 200
+  }
+
+  // 生成连接（控制器 -> 各设备）
+  const links = nodes.map((node) => ({
+    id: `dlink-${node.id}`,
+    source: 'dev-controller',
+    target: node.id,
+    interfaceType: '软总线',
+    label: 'SoftBus',
+  }))
+
+  return { nodes, links }
+}

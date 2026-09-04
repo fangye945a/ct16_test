@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUTPUT="$ROOT/dist/output"
 OUTPUT_RESOURCE="$ROOT/dist/output_resource"
 OUTPUT_STATIC="$ROOT/dist/output_static"
+BACKEND_HOSTED="$ROOT/dist/backend-hosted"
 
 # 映射平台环境变量到 preset 期望的变量名
 #   MIAODA_APP_ID            → /app/<appId> 作为客户端 base path
@@ -19,7 +20,10 @@ export NODE_ENV="${NODE_ENV:-production}"
 rm -rf "$ROOT/dist"
 
 # 1. Vite 构建 → dist/client/（相对于项目根目录输出）
-npx vite build --outDir "$ROOT/dist/client" --emptyOutDir
+npx vite build --outDir "$ROOT/dist/client" --emptyOutDir --sourcemap "${VITE_BUILD_SOURCEMAP:-true}"
+
+# 构建预设会将 HTML 标题替换为平台占位符，设备端托管时没有服务端模板渲染，需写入固定标题。
+sed -i 's#<title>{{appName}}</title>#<title>CT16 设备管理平台</title>#g' "$ROOT/dist/client/index.html"
 
 # 2. HTML → dist/output/
 mkdir -p "$OUTPUT"
@@ -43,6 +47,21 @@ if [ -d "$ROOT/shared/capabilities" ]; then
   cp -r "$ROOT/shared/capabilities/." "$ROOT/dist/output_capabilities/"
 fi
 
+# 6. 后端托管目录 → dist/backend-hosted/
+mkdir -p "$BACKEND_HOSTED"
+cp "$OUTPUT/index.html" "$BACKEND_HOSTED/index.html"
+[ -f "$OUTPUT/404.html" ] && cp "$OUTPUT/404.html" "$BACKEND_HOSTED/404.html" || true
+[ -f "$OUTPUT/routes.json" ] && cp "$OUTPUT/routes.json" "$BACKEND_HOSTED/routes.json" || true
+
+if [ -d "$OUTPUT_RESOURCE/assets" ]; then
+  mkdir -p "$BACKEND_HOSTED/assets"
+  cp -r "$OUTPUT_RESOURCE/assets/." "$BACKEND_HOSTED/assets/"
+fi
+
+if [ -d "$OUTPUT_STATIC" ]; then
+  cp -r "$OUTPUT_STATIC/." "$BACKEND_HOSTED/"
+fi
+
 # 清理中间产物
 rm -rf "$ROOT/dist/client"
 
@@ -50,4 +69,5 @@ echo "Build complete"
 echo "  HTML         → dist/output/"
 [ -d "$OUTPUT_RESOURCE" ] && echo "  Resource     → dist/output_resource/" || true
 [ -d "$OUTPUT_STATIC" ] && echo "  Static       → dist/output_static/" || true
+[ -d "$BACKEND_HOSTED" ] && echo "  BackendHost  → dist/backend-hosted/" || true
 [ -d "$ROOT/dist/output_capabilities" ] && echo "  Capabilities → dist/output_capabilities/" || true

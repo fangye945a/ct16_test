@@ -1,19 +1,43 @@
-import { Navigate, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react'
+import { Navigate, useLocation } from 'react-router-dom'
+import { getAuthStatus } from '@/api/auth'
+import { clearSessionToken } from '@/api/client'
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
-  const isAccountSetup = localStorage.getItem('zaihong:isAccountSetup') === 'true';
-  const isLoggedIn = localStorage.getItem('zaihong:isLoggedIn') === 'true';
+  const location = useLocation()
+  const [state, setState] = useState<'loading' | 'loggedIn' | 'notLoggedIn'>('loading')
 
-  // 未设置账号 → 跳转设置密码页
-  if (!isAccountSetup) {
-    return <Navigate to="/setup" replace />;
+  useEffect(() => {
+    let cancelled = false
+
+    getAuthStatus()
+      .then((status) => {
+        if (cancelled) return
+        if (status.isLoggedIn) {
+          setState('loggedIn')
+        } else {
+          clearSessionToken()
+          setState('notLoggedIn')
+        }
+      })
+      .catch(() => {
+        if (cancelled) return
+        clearSessionToken()
+        setState('notLoggedIn')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (state === 'loading') {
+    return null
   }
 
-  // 已设置账号但未登录 → 跳转登录页
-  if (!isLoggedIn) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  if (state === 'notLoggedIn') {
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  return <>{children}</>;
+  return <>{children}</>
 }

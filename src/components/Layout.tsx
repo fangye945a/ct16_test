@@ -46,15 +46,17 @@ function ManagedLayoutContent() {
     }
   }, [open, pathname, setOpen]);
 
-  return <>
-    <AppSidebar />
-    <SidebarInset className="flex flex-col min-w-0 overflow-x-hidden">
-      <Header />
-      <main className="flex-1 w-full overflow-y-auto px-4 md:px-6 lg:px-8 py-6">
-        <Outlet />
-      </main>
-    </SidebarInset>
-  </>;
+  return (
+    <>
+      <AppSidebar />
+      <SidebarInset className="flex flex-col min-w-0 overflow-x-hidden">
+        <Header />
+        <main className="flex-1 w-full overflow-y-auto px-4 md:px-6 lg:px-8 py-6">
+          <Outlet />
+        </main>
+      </SidebarInset>
+    </>
+  );
 }
 
 export function Layout() {

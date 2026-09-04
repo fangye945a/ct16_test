@@ -17,7 +17,7 @@ import {
   MOCK_DEVICE_MODELS,
   type IDeviceModel,
   type IDeviceModelScenario,
-} from '@/data/device-models';
+} from '@/data/batch-device-models';
 
 const DEVICE_MODELS_STORAGE_KEY = 'zaihong:device-models';
 const CUSTOM_SCENARIOS_STORAGE_KEY = 'zaihong:device-model-custom-scenarios';

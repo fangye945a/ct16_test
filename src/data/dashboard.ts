@@ -45,7 +45,7 @@ export interface IAlertEvent {
 
 export const MOCK_SYSTEM_INFO: ISystemInfo = {
   id: '1',
-  deviceName: '在鸿控制器',
+  deviceName: 'CT16 控制器',
   model: 'CT16',
   serialNumber: 'SN-2024X8A1',
   systemVersion: 'OpenHarmony 6.1 Release',

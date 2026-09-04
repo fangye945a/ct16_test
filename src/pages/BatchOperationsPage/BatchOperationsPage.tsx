@@ -640,7 +640,7 @@ export default function BatchOperationsPage() {
       results.map((result) => ({
         controllerId: `${result.row.targetController?.id || 'unknown'}-${result.row.rowNumber}`,
         controllerName: `${result.row.targetController?.name || '未知控制器'} · ${result.row.name}`,
-        status: result.status,
+        status: result.status === 'success' ? 'success' : 'failed',
         message: result.message,
       })),
     );
